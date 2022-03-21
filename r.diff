@@ -1,0 +1,11 @@
+diff --git a/include/linux/module.h b/include/linux/module.h
+index 1e135fd5c..10aa3692c 100644
+--- a/include/linux/module.h
++++ b/include/linux/module.h
+@@ -728,7 +728,7 @@ static inline bool within_module(unsigned long addr, const struct module *mod)
+ }
+ /* Get/put a kernel symbol (calls should be symmetric) */
+-#define symbol_get(x) ({ extern typeof(x) x __attribute__((weak,visibility("hidden"))); &(x); })
++#define symbol_get(x) ({ extern typeof(x) x __attribute__((weak,visibility("protected"))); &(x); })
+ #define symbol_put(x) do { } while (0)
+ #define symbol_put_addr(x) do { } while (0)

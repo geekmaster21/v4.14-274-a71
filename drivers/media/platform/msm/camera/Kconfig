@@ -54,6 +54,13 @@ config SAMSUNG_REAR_TOF
 	---help---
 	Enables support for rear tof camera.
 
+config CAMERA_ADAPTIVE_MIPI
+	tristate "adaptive mipi support"
+	depends on SPECTRA_CAMERA
+	default n
+	---help---
+	Enables support for adaptive mipi.
+
 config SAMSUNG_REAR_QUAD
 	tristate "rear quad support"
 	depends on SPECTRA_CAMERA
@@ -130,6 +137,55 @@ config GC5035_SENSOR
 	---help---
 	Enables support for SENSOR
 
+config S5K3L6_SENSOR
+	tristate "Sensor s5k3l6 support"
+	depends on SPECTRA_CAMERA
+	default n
+	---help---
+	Enables support for SENSOR
+	
+config HI1336_SENSOR
+	tristate "Sensor hi1336 support"
+	depends on SPECTRA_CAMERA
+	default n
+	---help---
+	Enables support for SENSOR
+
+config S5K4HA_SENSOR
+	tristate "Sensor s5k4ha support"
+	depends on SPECTRA_CAMERA
+	default n
+	---help---
+	Enables support for SENSOR
+
+config S5KGW1P_SENSOR
+	tristate "Sensor s5k4ha support"
+	depends on SPECTRA_CAMERA
+	default n
+	---help---
+	Enables support for SENSOR
+
+config SAMSUNG_CAMERA_EEPROM_TELE
+	tristate "Tele sensor EEPROM support"
+	depends on SPECTRA_CAMERA
+	default n
+	---help---
+	Enables support for TELE SENSOR EEPROM
+
+config SAMSUNG_CAMERA_OTP_UW
+	tristate "Ultra-Wide sensor OTP support"
+	depends on SPECTRA_CAMERA
+	default n
+	---help---
+	Enables support for UW SENSOR OTP
+
+config SAMSUNG_CAMERA_OTP_MACRO
+	tristate "Macro sensor OTP support"
+	depends on SPECTRA_CAMERA
+	default n
+	---help---
+	Enables support for MACRO SENSOR OTP
+
 config SAMSUNG_CAMERA_OTP
 	tristate "Sensor OTP support"
 	depends on SPECTRA_CAMERA
@@ -191,4 +247,4 @@ config GC5035_MACRO_OTP_DD_AUTOLOAD
 	depends on SPECTRA_CAMERA
 	default n
 	---help---
-	Enables support for Macro Camera Sensor GC5035 OTP DD Autoload.
+	Enables support for Macro Camera Sensor GC5035 OTP DD Autoload.	

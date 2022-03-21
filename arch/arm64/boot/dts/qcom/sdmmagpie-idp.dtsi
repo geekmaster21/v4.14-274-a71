@@ -350,6 +350,7 @@
 	qcom,qg-iterm-ma = <100>;
 	qcom,hold-soc-while-full;
 	qcom,linearize-soc;
+	qcom,cl-feedback-on;
 };
 
 &pm6150_charger {
