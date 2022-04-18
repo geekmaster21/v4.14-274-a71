@@ -430,6 +430,10 @@
 			embedded devices based on command line input.
 			See Documentation/block/cmdline-partition.txt
 
+	boot_cpus=	[SMP]
+			Rather than attempting to online all possible CPUs at
+			boot time, only online the specified set of CPUs.
+
 	boot_delay=	Milliseconds to delay each printk during boot.
 			Values larger than 10 seconds (10000) are changed to
 			no delay (0).
@@ -552,7 +556,7 @@
 			loops can be debugged more effectively on production
 			systems.
 
-	clearcpuid=BITNUM[,BITNUM...] [X86]
+	clearcpuid=BITNUM [X86]
 			Disable CPUID feature X for the kernel. See
 			arch/x86/include/asm/cpufeatures.h for the valid bit
 			numbers. Note the Linux specific bits are not necessarily
@@ -841,6 +845,11 @@
 
 	dis_ucode_ldr	[X86] Disable the microcode loader.
 
+	dm=		[DM] Allows early creation of a device-mapper device.
+			See Documentation/device-mapper/boot.txt.
+
+	dmasound=	[HW,OSS] Sound subsystem buff
+
 	dma_debug=off	If the kernel is compiled with DMA_API_DEBUG support,
 			this option disables the debugging code at boot.
 
@@ -857,6 +866,10 @@
 			pass the driver to filter for as the parameter.
 			The filter can be disabled or changed to another
 			driver later using sysfs.
+
+	driver_async_probe=  [KNL]
+			List of driver names to be probed asynchronously.
+			Format: <driver_name1>,<driver_name2>...
 
 	drm_kms_helper.edid_firmware=[<connector>:]<file>[,[<connector>:]<file>]
 			Broken monitors, graphic adapters, KVMs and EDIDless
@@ -1572,6 +1585,15 @@
 
 	initrd=		[BOOT] Specify the location of the initial ramdisk
 
+	init_on_alloc=	[MM] Fill newly allocated pages and heap objects with
+			zeroes.
+			Format: 0 | 1
+			Default set by CONFIG_INIT_ON_ALLOC_DEFAULT_ON.
+
+	init_on_free=	[MM] Fill freed pages and heap objects with zeroes.
+			Format: 0 | 1
+			Default set by CONFIG_INIT_ON_FREE_DEFAULT_ON.
+
 	init_pkru=	[x86] Specify the default memory protection keys rights
 			register contents for all processes.  0x55555554 by
 			default (disallow access to all but pkey 0).  Can
@@ -1905,12 +1927,8 @@
 			Default is 1 (enabled)
 
 	kvm-intel.emulate_invalid_guest_state=
-			[KVM,Intel] Disable emulation of invalid guest state.
-			Ignored if kvm-intel.enable_unrestricted_guest=1, as
-			guest state is never invalid for unrestricted guests.
-			This param doesn't apply to nested guests (L2), as KVM
-			never emulates invalid L2 guest state.
-			Default is 1 (enabled)
+			[KVM,Intel] Enable emulation of invalid guest states
+			Default is 0 (disabled)
 
 	kvm-intel.flexpriority=
 			[KVM,Intel] Disable FlexPriority feature (TPR shadow).
@@ -2450,8 +2468,6 @@
 					       mds=off [X86]
 					       tsx_async_abort=off [X86]
 					       kvm.nx_huge_pages=off [X86]
-					       no_entry_flush [PPC]
-					       no_uaccess_flush [PPC]
 
 				Exceptions:
 					       This does not have any effect on
@@ -2755,8 +2771,6 @@
 
 	noefi		Disable EFI runtime services support.
 
-	no_entry_flush  [PPC] Don't flush the L1-D cache when entering the kernel.
-
 	noexec		[IA-64]
 
 	noexec		[X86]
@@ -2805,9 +2819,6 @@
 
 	nospec_store_bypass_disable
 			[HW] Disable all mitigations for the Speculative Store Bypass vulnerability
-
-	no_uaccess_flush
-	                [PPC] Don't flush the L1-D cache after accessing user data.
 
 	noxsave		[BUGS=X86] Disables x86 extended register state save
 			and restore using xsave. The kernel will fallback to
@@ -3443,6 +3454,10 @@
 			before loading.
 			See Documentation/blockdev/ramdisk.txt.
 
+	psi=		[KNL] Enable or disable pressure stall information
+			tracking.
+			Format: <bool>
+
 	psmouse.proto=	[HW,MOUSE] Highest PS2 mouse protocol extension to
 			probe for; one of (bare|imps|exps|lifebook|any).
 	psmouse.rate=	[HW,MOUSE] Set desired mouse report rate, in reports
@@ -3915,6 +3930,17 @@
 				(that will set all pages holding image data
 				during restoration read-only).
 
+	noswap_randomize
+			Kernel uses random disk offsets to help with wear-levelling
+			of SSD devices, while saving the hibernation snapshot image to
+			disk. Use this parameter to disable this feature for SSD
+			devices in scenarios when, such randomization is addressed at
+			the firmware level and hibenration image is not re-generated
+			frequently.
+			(Useful for improving hibernation resume time as snapshot pages
+			are available in disk serially and can be read in bigger chunks
+			without seeking)
+
 	retain_initrd	[RAM] Keep initrd memory after extraction
 
 	rfkill.default_state=
@@ -4150,12 +4176,8 @@
 			Specific mitigations can also be selected manually:
 
 			retpoline	  - replace indirect branches
-			retpoline,generic - Retpolines
-			retpoline,lfence  - LFENCE; indirect branch
-			retpoline,amd     - alias for retpoline,lfence
-			eibrs		  - enhanced IBRS
-			eibrs,retpoline   - enhanced IBRS + Retpolines
-			eibrs,lfence      - enhanced IBRS + LFENCE
+			retpoline,generic - google's original retpoline
+			retpoline,amd     - AMD-specific minimal thunk
 
 			Not specifying this option is equivalent to
 			spectre_v2=auto.
@@ -4758,7 +4780,6 @@
 					device);
 				j = NO_REPORT_LUNS (don't use report luns
 					command, uas only);
-				k = NO_SAME (do not use WRITE_SAME, uas only)
 				l = NOT_LOCKABLE (don't try to lock and
 					unlock ejectable media, not on uas);
 				m = MAX_SECTORS_64 (don't transfer more
@@ -5038,21 +5059,12 @@
 			Disables the PV optimizations forcing the HVM guest to
 			run as generic HVM guest with no PV drivers.
 
-	xen.balloon_boot_timeout= [XEN]
-			The time (in seconds) to wait before giving up to boot
-			in case initial ballooning fails to free enough memory.
-			Applies only when running as HVM or PVH guest and
-			started with less memory configured than allowed at
-			max. Default is 180.
-
-	xen.event_eoi_delay=	[XEN]
-			How long to delay EOI handling in case of event
-			storms (jiffies). Default is 10.
-
-	xen.event_loop_timeout=	[XEN]
-			After which time (jiffies) the event handling loop
-			should start to delay EOI handling. Default is 2.
-
 	xirc2ps_cs=	[NET,PCMCIA]
 			Format:
 			<irq>,<irq_mask>,<io>,<full_duplex>,<do_sound>,<lockup_hack>[,<irq2>[,<irq3>[,<irq4>]]]
+
+	eipv4=	[KNL] Sets ipv4 address at boot up for early ethernet.
+
+	eipv6=	[KNL] Sets ipv6 address at boot up for early ethernet.
+
+	ermac=	[KNL] Sets mac address at boot up for early ethernet.
