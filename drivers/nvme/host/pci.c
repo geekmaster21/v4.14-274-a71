@@ -36,6 +36,8 @@
 
 #include "nvme.h"
 
+#include "nvme-qcom.h"
+
 #define SQ_SIZE(depth)		(depth * sizeof(struct nvme_command))
 #define CQ_SIZE(depth)		(depth * sizeof(struct nvme_completion))
 
@@ -266,21 +268,9 @@ static void nvme_dbbuf_init(struct nvme_dev *dev,
 	nvmeq->dbbuf_cq_ei = &dev->dbbuf_eis[cq_idx(qid, dev->db_stride)];
 }
 
-static void nvme_dbbuf_free(struct nvme_queue *nvmeq)
-{
-	if (!nvmeq->qid)
-		return;
-
-	nvmeq->dbbuf_sq_db = NULL;
-	nvmeq->dbbuf_cq_db = NULL;
-	nvmeq->dbbuf_sq_ei = NULL;
-	nvmeq->dbbuf_cq_ei = NULL;
-}
-
 static void nvme_dbbuf_set(struct nvme_dev *dev)
 {
 	struct nvme_command c;
-	unsigned int i;
 
 	if (!dev->dbbuf_dbs)
 		return;
@@ -294,9 +284,6 @@ static void nvme_dbbuf_set(struct nvme_dev *dev)
 		dev_warn(dev->ctrl.device, "unable to set dbbuf\n");
 		/* Free memory and continue on */
 		nvme_dbbuf_dma_free(dev);
-
-		for (i = 1; i <= dev->online_queues; i++)
-			nvme_dbbuf_free(&dev->queues[i]);
 	}
 }
 
@@ -2371,6 +2358,11 @@ static int nvme_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto free;
 
 	dev->dev = get_device(&pdev->dev);
+	/* Parse dt parameters and configure SMMU*/
+	result = nvme_qcom_parse_dt(&pdev->dev);
+	if (result)
+		goto free;
+
 	pci_set_drvdata(pdev, dev);
 
 	result = nvme_dev_map(dev);
@@ -2400,6 +2392,7 @@ static int nvme_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	return 0;
 
  release_pools:
+	nvme_qcom_release_mapping(&pdev->dev);
 	nvme_release_prp_pools(dev);
  unmap:
 	nvme_dev_unmap(dev);
@@ -2459,6 +2452,7 @@ static void nvme_remove(struct pci_dev *pdev)
 	nvme_release_prp_pools(dev);
 	nvme_dev_unmap(dev);
 	nvme_put_ctrl(&dev->ctrl);
+	nvme_qcom_release_mapping(&pdev->dev);
 }
 
 static int nvme_pci_sriov_configure(struct pci_dev *pdev, int numvfs)
@@ -2575,6 +2569,8 @@ static const struct pci_device_id nvme_id_table[] = {
 		.driver_data = NVME_QUIRK_DELAY_BEFORE_CHK_RDY, },
 	{ PCI_DEVICE(0x1c58, 0x0023),	/* WDC SN200 adapter */
 		.driver_data = NVME_QUIRK_DELAY_BEFORE_CHK_RDY, },
+	{ PCI_DEVICE(0x1c5c, 0x1327),
+		.driver_data = NVME_QUIRK_DELAY_BEFORE_CHK_RDY, },
 	{ PCI_DEVICE(0x1c5f, 0x0540),	/* Memblaze Pblaze4 adapter */
 		.driver_data = NVME_QUIRK_DELAY_BEFORE_CHK_RDY, },
 	{ PCI_DEVICE(0x144d, 0xa821),   /* Samsung PM1725 */
@@ -2588,10 +2584,10 @@ static const struct pci_device_id nvme_id_table[] = {
 	{ PCI_DEVICE(0x1d1d, 0x2601),	/* CNEX Granby */
 		.driver_data = NVME_QUIRK_LIGHTNVM, },
 	{ PCI_DEVICE_CLASS(PCI_CLASS_STORAGE_EXPRESS, 0xffffff) },
-	{ PCI_DEVICE(0x2646, 0x2263),   /* KINGSTON A2000 NVMe SSD  */
-		.driver_data = NVME_QUIRK_NO_DEEPEST_PS, },
 	{ PCI_DEVICE(PCI_VENDOR_ID_APPLE, 0x2001) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_APPLE, 0x2003) },
+	{ PCI_DEVICE(0x1179, 0x0115) }, /* TOSHIBA 4.0 device */
+	{ PCI_DEVICE(0x1179, 0x0116) }, /* TOSHIBA 5.0 device */
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, nvme_id_table);

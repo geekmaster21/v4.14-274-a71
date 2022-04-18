@@ -36,6 +36,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/map.h>
+#include <linux/mtd/partitions.h>
 
 #include <linux/uaccess.h>
 
@@ -372,6 +373,9 @@ static int mtdchar_writeoob(struct file *file, struct mtd_info *mtd,
 	uint32_t retlen;
 	int ret = 0;
 
+	if (!(file->f_mode & FMODE_WRITE))
+		return -EPERM;
+
 	if (length > 4096)
 		return -EINVAL;
 
@@ -678,48 +682,6 @@ static int mtdchar_ioctl(struct file *file, u_int cmd, u_long arg)
 			return -EFAULT;
 	}
 
-	/*
-	 * Check the file mode to require "dangerous" commands to have write
-	 * permissions.
-	 */
-	switch (cmd) {
-	/* "safe" commands */
-	case MEMGETREGIONCOUNT:
-	case MEMGETREGIONINFO:
-	case MEMGETINFO:
-	case MEMREADOOB:
-	case MEMREADOOB64:
-	case MEMISLOCKED:
-	case MEMGETOOBSEL:
-	case MEMGETBADBLOCK:
-	case OTPSELECT:
-	case OTPGETREGIONCOUNT:
-	case OTPGETREGIONINFO:
-	case ECCGETLAYOUT:
-	case ECCGETSTATS:
-	case MTDFILEMODE:
-	case BLKPG:
-	case BLKRRPART:
-		break;
-
-	/* "dangerous" commands */
-	case MEMERASE:
-	case MEMERASE64:
-	case MEMLOCK:
-	case MEMUNLOCK:
-	case MEMSETBADBLOCK:
-	case MEMWRITEOOB:
-	case MEMWRITEOOB64:
-	case MEMWRITE:
-	case OTPLOCK:
-		if (!(file->f_mode & FMODE_WRITE))
-			return -EPERM;
-		break;
-
-	default:
-		return -ENOTTY;
-	}
-
 	switch (cmd) {
 	case MEMGETREGIONCOUNT:
 		if (copy_to_user(argp, &(mtd->numeraseregions), sizeof(int)))
@@ -766,6 +728,9 @@ static int mtdchar_ioctl(struct file *file, u_int cmd, u_long arg)
 	case MEMERASE64:
 	{
 		struct erase_info *erase;
+
+		if(!(file->f_mode & FMODE_WRITE))
+			return -EPERM;
 
 		erase=kzalloc(sizeof(struct erase_info),GFP_KERNEL);
 		if (!erase)
@@ -1039,6 +1004,9 @@ static int mtdchar_ioctl(struct file *file, u_int cmd, u_long arg)
 
 	case ECCGETSTATS:
 	{
+#ifdef CONFIG_MTD_LAZYECCSTATS
+		part_fill_badblockstats(mtd);
+#endif
 		if (copy_to_user(argp, &mtd->ecc_stats,
 				 sizeof(struct mtd_ecc_stats)))
 			return -EFAULT;
@@ -1087,6 +1055,9 @@ static int mtdchar_ioctl(struct file *file, u_int cmd, u_long arg)
 		ret = 0;
 		break;
 	}
+
+	default:
+		ret = -ENOTTY;
 	}
 
 	return ret;
@@ -1129,11 +1100,6 @@ static long mtdchar_compat_ioctl(struct file *file, unsigned int cmd,
 	{
 		struct mtd_oob_buf32 buf;
 		struct mtd_oob_buf32 __user *buf_user = argp;
-
-		if (!(file->f_mode & FMODE_WRITE)) {
-			ret = -EPERM;
-			break;
-		}
 
 		if (copy_from_user(&buf, argp, sizeof(buf)))
 			ret = -EFAULT;
