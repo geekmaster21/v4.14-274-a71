@@ -253,8 +253,9 @@ int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 	int ret = DRIVER_ERROR << 24;
 
 	req = blk_get_request(sdev->request_queue,
-			data_direction == DMA_TO_DEVICE ?
-			REQ_OP_SCSI_OUT : REQ_OP_SCSI_IN, __GFP_RECLAIM);
+			      (data_direction == DMA_TO_DEVICE ?
+			       REQ_OP_SCSI_OUT : REQ_OP_SCSI_IN) | REQ_PREEMPT,
+			      __GFP_RECLAIM);
 	if (IS_ERR(req))
 		return ret;
 	rq = scsi_req(req);
@@ -266,9 +267,13 @@ int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 	rq->cmd_len = COMMAND_SIZE(cmd[0]);
 	memcpy(rq->cmd, cmd, rq->cmd_len);
 	rq->retries = retries;
-	req->timeout = timeout;
+	if (likely(!sdev->timeout_override))
+		req->timeout = timeout;
+	else
+		req->timeout = sdev->timeout_override;
+
 	req->cmd_flags |= flags;
-	req->rq_flags |= rq_flags | RQF_QUIET | RQF_PREEMPT;
+	req->rq_flags |= rq_flags | RQF_QUIET;
 
 	/*
 	 * head injection *required* here otherwise quiesce won't work
@@ -971,7 +976,6 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 				case 0x07: /* operation in progress */
 				case 0x08: /* Long write in progress */
 				case 0x09: /* self test in progress */
-				case 0x11: /* notify (enable spinup) required */
 				case 0x14: /* space allocation in progress */
 					action = ACTION_DELAYED_RETRY;
 					break;
@@ -1341,7 +1345,7 @@ scsi_prep_state_check(struct scsi_device *sdev, struct request *req)
 			/*
 			 * If the devices is blocked we defer normal commands.
 			 */
-			if (!(req->rq_flags & RQF_PREEMPT))
+			if (!(req->cmd_flags & REQ_PREEMPT))
 				ret = BLKPREP_DEFER;
 			break;
 		default:
@@ -1350,7 +1354,7 @@ scsi_prep_state_check(struct scsi_device *sdev, struct request *req)
 			 * special commands.  In particular any user initiated
 			 * command is not allowed.
 			 */
-			if (!(req->rq_flags & RQF_PREEMPT))
+			if (!(req->cmd_flags & REQ_PREEMPT))
 				ret = BLKPREP_KILL;
 			break;
 		}
@@ -1426,6 +1430,48 @@ static void scsi_unprep_fn(struct request_queue *q, struct request *req)
 {
 	scsi_uninit_cmd(blk_mq_rq_to_pdu(req));
 }
+
+#if IS_ENABLED(CONFIG_BLK_TURBO_WRITE)
+static void scsi_tw_try_on_fn(struct request_queue *q)
+{
+	struct scsi_device *sdev = q->queuedata;
+	struct Scsi_Host *shost = sdev->host;
+
+        if(shost->hostt->tw_ctrl)
+                shost->hostt->tw_ctrl(sdev, 1);
+}
+
+static void scsi_tw_try_off_fn(struct request_queue *q)
+{
+	struct scsi_device *sdev = q->queuedata;
+	struct Scsi_Host *shost = sdev->host;
+
+        if(shost->hostt->tw_ctrl)
+		shost->hostt->tw_ctrl(sdev, 0);
+}
+
+void scsi_reset_tw_state(struct Scsi_Host *shost)
+{
+	struct scsi_device *sdev;
+
+	shost_for_each_device(sdev, shost) {
+		if (sdev->support_tw_lu)
+			blk_reset_tw_state(sdev->request_queue);
+	}
+}
+EXPORT_SYMBOL(scsi_reset_tw_state);
+
+void scsi_alloc_tw(struct scsi_device *sdev)
+{
+	if (sdev->support_tw_lu) {
+		blk_alloc_turbo_write(sdev->request_queue);
+		blk_register_tw_try_on_fn(sdev->request_queue, scsi_tw_try_on_fn);
+		blk_register_tw_try_off_fn(sdev->request_queue, scsi_tw_try_off_fn);
+		printk(KERN_INFO "%s: register scsi ufs tw interface for LU %d\n",
+				__func__, (int)sdev->lun);
+	}
+}
+#endif
 
 /*
  * scsi_dev_queue_ready: if we can send requests to sdev, return 1 else
@@ -2375,6 +2421,33 @@ void scsi_unblock_requests(struct Scsi_Host *shost)
 }
 EXPORT_SYMBOL(scsi_unblock_requests);
 
+/*
+ * Function:    scsi_set_cmd_timeout_override()
+ *
+ * Purpose:     Utility function used by low-level drivers to override
+		timeout for the scsi commands.
+ *
+ * Arguments:   sdev       - scsi device in question
+ *		timeout	   - timeout in jiffies
+ *
+ * Returns:     Nothing
+ *
+ * Lock status: No locks are assumed held.
+ *
+ * Notes:	Some platforms might be very slow and command completion may
+ *		take much longer than default scsi command timeouts.
+ *		SCSI Read/Write command timeout can be changed by
+ *		blk_queue_rq_timeout() but there is no option to override
+ *		timeout for rest of the scsi commands. This function would
+ *		would allow this.
+ */
+void scsi_set_cmd_timeout_override(struct scsi_device *sdev,
+				   unsigned int timeout)
+{
+	sdev->timeout_override = timeout;
+}
+EXPORT_SYMBOL(scsi_set_cmd_timeout_override);
+
 int __init scsi_init_queue(void)
 {
 	scsi_sdb_cache = kmem_cache_create("scsi_data_buffer",
@@ -2968,12 +3041,28 @@ scsi_device_quiesce(struct scsi_device *sdev)
 {
 	int err;
 
+	/*
+	 * Simply quiesing SCSI device isn't safe, it is easy
+	 * to use up requests because all these allocated requests
+	 * can't be dispatched when device is put in QIUESCE.
+	 * Then no request can be allocated and we may hang
+	 * somewhere, such as system suspend/resume.
+	 *
+	 * So we set block queue in preempt only first, no new
+	 * normal request can enter queue any more, and all pending
+	 * requests are drained once blk_set_preempt_only()
+	 * returns. Only RQF_PREEMPT is allowed in preempt only mode.
+	 */
+	blk_set_preempt_only(sdev->request_queue, true);
+
 	mutex_lock(&sdev->state_mutex);
 	err = scsi_device_set_state(sdev, SDEV_QUIESCE);
 	mutex_unlock(&sdev->state_mutex);
 
-	if (err)
+	if (err) {
+		blk_set_preempt_only(sdev->request_queue, false);
 		return err;
+	}
 
 	scsi_run_queue(sdev->request_queue);
 	while (atomic_read(&sdev->device_busy)) {
@@ -3004,6 +3093,8 @@ void scsi_device_resume(struct scsi_device *sdev)
 	    scsi_device_set_state(sdev, SDEV_RUNNING) == 0)
 		scsi_run_queue(sdev->request_queue);
 	mutex_unlock(&sdev->state_mutex);
+
+	blk_set_preempt_only(sdev->request_queue, false);
 }
 EXPORT_SYMBOL(scsi_device_resume);
 
@@ -3327,78 +3418,6 @@ void sdev_enable_disk_events(struct scsi_device *sdev)
 }
 EXPORT_SYMBOL(sdev_enable_disk_events);
 
-static unsigned char designator_prio(const unsigned char *d)
-{
-	if (d[1] & 0x30)
-		/* not associated with LUN */
-		return 0;
-
-	if (d[3] == 0)
-		/* invalid length */
-		return 0;
-
-	/*
-	 * Order of preference for lun descriptor:
-	 * - SCSI name string
-	 * - NAA IEEE Registered Extended
-	 * - EUI-64 based 16-byte
-	 * - EUI-64 based 12-byte
-	 * - NAA IEEE Registered
-	 * - NAA IEEE Extended
-	 * - EUI-64 based 8-byte
-	 * - SCSI name string (truncated)
-	 * - T10 Vendor ID
-	 * as longer descriptors reduce the likelyhood
-	 * of identification clashes.
-	 */
-
-	switch (d[1] & 0xf) {
-	case 8:
-		/* SCSI name string, variable-length UTF-8 */
-		return 9;
-	case 3:
-		switch (d[4] >> 4) {
-		case 6:
-			/* NAA registered extended */
-			return 8;
-		case 5:
-			/* NAA registered */
-			return 5;
-		case 4:
-			/* NAA extended */
-			return 4;
-		case 3:
-			/* NAA locally assigned */
-			return 1;
-		default:
-			break;
-		}
-		break;
-	case 2:
-		switch (d[3]) {
-		case 16:
-			/* EUI64-based, 16 byte */
-			return 7;
-		case 12:
-			/* EUI64-based, 12 byte */
-			return 6;
-		case 8:
-			/* EUI64-based, 8 byte */
-			return 3;
-		default:
-			break;
-		}
-		break;
-	case 1:
-		/* T10 vendor ID */
-		return 1;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
 /**
  * scsi_vpd_lun_id - return a unique device identification
  * @sdev: SCSI device
@@ -3415,7 +3434,7 @@ static unsigned char designator_prio(const unsigned char *d)
  */
 int scsi_vpd_lun_id(struct scsi_device *sdev, char *id, size_t id_len)
 {
-	u8 cur_id_prio = 0;
+	u8 cur_id_type = 0xff;
 	u8 cur_id_size = 0;
 	const unsigned char *d, *cur_id_str;
 	const struct scsi_vpd *vpd_pg83;
@@ -3428,6 +3447,20 @@ int scsi_vpd_lun_id(struct scsi_device *sdev, char *id, size_t id_len)
 		return -ENXIO;
 	}
 
+	/*
+	 * Look for the correct descriptor.
+	 * Order of preference for lun descriptor:
+	 * - SCSI name string
+	 * - NAA IEEE Registered Extended
+	 * - EUI-64 based 16-byte
+	 * - EUI-64 based 12-byte
+	 * - NAA IEEE Registered
+	 * - NAA IEEE Extended
+	 * - T10 Vendor ID
+	 * as longer descriptors reduce the likelyhood
+	 * of identification clashes.
+	 */
+
 	/* The id string must be at least 20 bytes + terminating NULL byte */
 	if (id_len < 21) {
 		rcu_read_unlock();
@@ -3437,9 +3470,8 @@ int scsi_vpd_lun_id(struct scsi_device *sdev, char *id, size_t id_len)
 	memset(id, 0, id_len);
 	d = vpd_pg83->data + 4;
 	while (d < vpd_pg83->data + vpd_pg83->len) {
-		u8 prio = designator_prio(d);
-
-		if (prio == 0 || cur_id_prio > prio)
+		/* Skip designators not referring to the LUN */
+		if ((d[1] & 0x30) != 0x00)
 			goto next_desig;
 
 		switch (d[1] & 0xf) {
@@ -3447,19 +3479,28 @@ int scsi_vpd_lun_id(struct scsi_device *sdev, char *id, size_t id_len)
 			/* T10 Vendor ID */
 			if (cur_id_size > d[3])
 				break;
-			cur_id_prio = prio;
+			/* Prefer anything */
+			if (cur_id_type > 0x01 && cur_id_type != 0xff)
+				break;
 			cur_id_size = d[3];
 			if (cur_id_size + 4 > id_len)
 				cur_id_size = id_len - 4;
 			cur_id_str = d + 4;
+			cur_id_type = d[1] & 0xf;
 			id_size = snprintf(id, id_len, "t10.%*pE",
 					   cur_id_size, cur_id_str);
 			break;
 		case 0x2:
 			/* EUI-64 */
-			cur_id_prio = prio;
+			if (cur_id_size > d[3])
+				break;
+			/* Prefer NAA IEEE Registered Extended */
+			if (cur_id_type == 0x3 &&
+			    cur_id_size == d[3])
+				break;
 			cur_id_size = d[3];
 			cur_id_str = d + 4;
+			cur_id_type = d[1] & 0xf;
 			switch (cur_id_size) {
 			case 8:
 				id_size = snprintf(id, id_len,
@@ -3477,14 +3518,17 @@ int scsi_vpd_lun_id(struct scsi_device *sdev, char *id, size_t id_len)
 						   cur_id_str);
 				break;
 			default:
+				cur_id_size = 0;
 				break;
 			}
 			break;
 		case 0x3:
 			/* NAA */
-			cur_id_prio = prio;
+			if (cur_id_size > d[3])
+				break;
 			cur_id_size = d[3];
 			cur_id_str = d + 4;
+			cur_id_type = d[1] & 0xf;
 			switch (cur_id_size) {
 			case 8:
 				id_size = snprintf(id, id_len,
@@ -3497,25 +3541,26 @@ int scsi_vpd_lun_id(struct scsi_device *sdev, char *id, size_t id_len)
 						   cur_id_str);
 				break;
 			default:
+				cur_id_size = 0;
 				break;
 			}
 			break;
 		case 0x8:
 			/* SCSI name string */
-			if (cur_id_size > d[3])
+			if (cur_id_size + 4 > d[3])
 				break;
 			/* Prefer others for truncated descriptor */
-			if (d[3] > id_len) {
-				prio = 2;
-				if (cur_id_prio > prio)
-					break;
-			}
-			cur_id_prio = prio;
+			if (cur_id_size && d[3] > id_len)
+				break;
 			cur_id_size = id_size = d[3];
 			cur_id_str = d + 4;
+			cur_id_type = d[1] & 0xf;
 			if (cur_id_size >= id_len)
 				cur_id_size = id_len - 1;
 			memcpy(id, cur_id_str, cur_id_size);
+			/* Decrease priority for truncated descriptor */
+			if (cur_id_size != id_size)
+				cur_id_size = 6;
 			break;
 		default:
 			break;
