@@ -560,9 +560,6 @@ int nfs_readdir_page_filler(nfs_readdir_descriptor_t *desc, struct nfs_entry *en
 	xdr_set_scratch_buffer(&stream, page_address(scratch), PAGE_SIZE);
 
 	do {
-		if (entry->label)
-			entry->label->len = NFS4_MAXLABELLEN;
-
 		status = xdr_decode(desc, entry, &stream);
 		if (status != 0) {
 			if (status == -EAGAIN)
@@ -686,8 +683,9 @@ out:
  * We only need to convert from xdr once so future lookups are much simpler
  */
 static
-int nfs_readdir_filler(nfs_readdir_descriptor_t *desc, struct page* page)
+int nfs_readdir_filler(struct file *file, struct page* page)
 {
+	nfs_readdir_descriptor_t *desc = (nfs_readdir_descriptor_t *)file;
 	struct inode	*inode = file_inode(desc->file);
 	int ret;
 
@@ -719,7 +717,7 @@ static
 struct page *get_cache_page(nfs_readdir_descriptor_t *desc)
 {
 	return read_cache_page(desc->file->f_mapping,
-			desc->page_index, (filler_t *)nfs_readdir_filler, desc);
+			desc->page_index, nfs_readdir_filler, desc);
 }
 
 /*
@@ -1607,24 +1605,6 @@ out:
 
 no_open:
 	res = nfs_lookup(dir, dentry, lookup_flags);
-	if (!res) {
-		inode = d_inode(dentry);
-		if ((lookup_flags & LOOKUP_DIRECTORY) && inode &&
-		    !(S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode)))
-			res = ERR_PTR(-ENOTDIR);
-		else if (inode && S_ISREG(inode->i_mode))
-			res = ERR_PTR(-EOPENSTALE);
-	} else if (!IS_ERR(res)) {
-		inode = d_inode(res);
-		if ((lookup_flags & LOOKUP_DIRECTORY) && inode &&
-		    !(S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode))) {
-			dput(res);
-			res = ERR_PTR(-ENOTDIR);
-		} else if (inode && S_ISREG(inode->i_mode)) {
-			dput(res);
-			res = ERR_PTR(-EOPENSTALE);
-		}
-	}
 	if (switched) {
 		d_lookup_done(dentry);
 		if (!res)

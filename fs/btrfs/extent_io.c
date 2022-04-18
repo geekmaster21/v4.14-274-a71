@@ -3820,8 +3820,8 @@ retry:
 	if (wbc->sync_mode == WB_SYNC_ALL)
 		tag_pages_for_writeback(mapping, index, end);
 	while (!done && !nr_to_write_done && (index <= end) &&
-	       (nr_pages = pagevec_lookup_tag(&pvec, mapping, &index, tag,
-			min(end - index, (pgoff_t)PAGEVEC_SIZE-1) + 1))) {
+	       (nr_pages = pagevec_lookup_range_tag(&pvec, mapping, &index, end,
+			tag))) {
 		unsigned i;
 
 		scanned = 1;
@@ -3830,11 +3830,6 @@ retry:
 
 			if (!PagePrivate(page))
 				continue;
-
-			if (!wbc->range_cyclic && page->index > end) {
-				done = 1;
-				break;
-			}
 
 			spin_lock(&mapping->private_lock);
 			if (!PagePrivate(page)) {
@@ -3869,10 +3864,6 @@ retry:
 			if (!ret) {
 				free_extent_buffer(eb);
 				continue;
-			} else if (ret < 0) {
-				done = 1;
-				free_extent_buffer(eb);
-				break;
 			}
 
 			ret = write_one_eb(eb, fs_info, wbc, &epd);
@@ -3971,8 +3962,8 @@ retry:
 		tag_pages_for_writeback(mapping, index, end);
 	done_index = index;
 	while (!done && !nr_to_write_done && (index <= end) &&
-	       (nr_pages = pagevec_lookup_tag(&pvec, mapping, &index, tag,
-			min(end - index, (pgoff_t)PAGEVEC_SIZE-1) + 1))) {
+			(nr_pages = pagevec_lookup_range_tag(&pvec, mapping,
+						&index, end, tag))) {
 		unsigned i;
 
 		scanned = 1;
@@ -3993,12 +3984,6 @@ retry:
 			}
 
 			if (unlikely(page->mapping != mapping)) {
-				unlock_page(page);
-				continue;
-			}
-
-			if (!wbc->range_cyclic && page->index > end) {
-				done = 1;
 				unlock_page(page);
 				continue;
 			}
@@ -4327,8 +4312,6 @@ int try_release_extent_mapping(struct extent_map_tree *map,
 
 			/* once for us */
 			free_extent_map(em);
-
-			cond_resched(); /* Allow large-extent preemption. */
 		}
 	}
 	return try_release_extent_state(map, tree, page, mask);
@@ -5452,9 +5435,9 @@ void read_extent_buffer(const struct extent_buffer *eb, void *dstv,
 	}
 }
 
-int read_extent_buffer_to_user_nofault(const struct extent_buffer *eb,
-				       void __user *dstv,
-				       unsigned long start, unsigned long len)
+int read_extent_buffer_to_user(const struct extent_buffer *eb,
+			       void __user *dstv,
+			       unsigned long start, unsigned long len)
 {
 	size_t cur;
 	size_t offset;
@@ -5475,7 +5458,7 @@ int read_extent_buffer_to_user_nofault(const struct extent_buffer *eb,
 
 		cur = min(len, (PAGE_SIZE - offset));
 		kaddr = page_address(page);
-		if (probe_user_write(dst, kaddr + offset, cur)) {
+		if (copy_to_user(dst, kaddr + offset, cur)) {
 			ret = -EFAULT;
 			break;
 		}
