@@ -2520,8 +2520,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
 					   const struct in6_addr *gwaddr,
 					   struct net_device *dev)
 {
-	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_INFO;
-	int ifindex = dev->ifindex;
+	u32 tb_id = l3mdev_fib_table(dev) ? : addrconf_rt_table(dev, RT6_TABLE_INFO);
 	struct fib6_node *fn;
 	struct rt6_info *rt = NULL;
 	struct fib6_table *table;
@@ -2536,7 +2535,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
 		goto out;
 
 	for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
-		if (rt->dst.dev->ifindex != ifindex)
+		if (rt->dst.dev->ifindex != dev->ifindex)
 			continue;
 		if ((rt->rt6i_flags & (RTF_ROUTEINFO|RTF_GATEWAY)) != (RTF_ROUTEINFO|RTF_GATEWAY))
 			continue;
@@ -2568,7 +2567,7 @@ static struct rt6_info *rt6_add_route_info(struct net *net,
 		.fc_nlinfo.nl_net = net,
 	};
 
-	cfg.fc_table = l3mdev_fib_table(dev) ? : RT6_TABLE_INFO,
+	cfg.fc_table = l3mdev_fib_table(dev) ? : addrconf_rt_table(dev, RT6_TABLE_INFO),
 	cfg.fc_dst = *prefix;
 	cfg.fc_gateway = *gwaddr;
 
@@ -2584,7 +2583,7 @@ static struct rt6_info *rt6_add_route_info(struct net *net,
 
 struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_device *dev)
 {
-	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_DFLT;
+	u32 tb_id = l3mdev_fib_table(dev) ? : addrconf_rt_table(dev, RT6_TABLE_MAIN);
 	struct rt6_info *rt;
 	struct fib6_table *table;
 
@@ -2610,7 +2609,7 @@ struct rt6_info *rt6_add_dflt_router(const struct in6_addr *gwaddr,
 				     unsigned int pref)
 {
 	struct fib6_config cfg = {
-		.fc_table	= l3mdev_fib_table(dev) ? : RT6_TABLE_DFLT,
+		.fc_table	= l3mdev_fib_table(dev) ? : addrconf_rt_table(dev, RT6_TABLE_DFLT),
 		.fc_metric	= IP6_RT_PRIO_USER,
 		.fc_ifindex	= dev->ifindex,
 		.fc_flags	= RTF_GATEWAY | RTF_ADDRCONF | RTF_DEFAULT |
@@ -2634,43 +2633,16 @@ struct rt6_info *rt6_add_dflt_router(const struct in6_addr *gwaddr,
 	return rt6_get_dflt_router(gwaddr, dev);
 }
 
-static void __rt6_purge_dflt_routers(struct fib6_table *table)
-{
-	struct rt6_info *rt;
-
-restart:
-	read_lock_bh(&table->tb6_lock);
-	for (rt = table->tb6_root.leaf; rt; rt = rt->dst.rt6_next) {
-		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
-		    (!rt->rt6i_idev || rt->rt6i_idev->cnf.accept_ra != 2)) {
-			dst_hold(&rt->dst);
-			read_unlock_bh(&table->tb6_lock);
-			ip6_del_rt(rt);
-			goto restart;
-		}
-	}
-	read_unlock_bh(&table->tb6_lock);
-
-	table->flags &= ~RT6_TABLE_HAS_DFLT_ROUTER;
+int rt6_addrconf_purge(struct rt6_info *rt, void *arg) {
+	if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
+	    (!rt->rt6i_idev || rt->rt6i_idev->cnf.accept_ra != 2))
+		return -1;
+	return 0;
 }
 
 void rt6_purge_dflt_routers(struct net *net)
 {
-	struct fib6_table *table;
-	struct hlist_head *head;
-	unsigned int h;
-
-	rcu_read_lock();
-
-	for (h = 0; h < FIB6_TABLE_HASHSZ; h++) {
-		head = &net->ipv6.fib_table_hash[h];
-		hlist_for_each_entry_rcu(table, head, tb6_hlist) {
-			if (table->flags & RT6_TABLE_HAS_DFLT_ROUTER)
-				__rt6_purge_dflt_routers(table);
-		}
-	}
-
-	rcu_read_unlock();
+	fib6_clean_all(net, rt6_addrconf_purge, NULL);
 }
 
 static void rtmsg_to_fib6_config(struct net *net,
@@ -3183,19 +3155,6 @@ static void ip6_route_mpath_notify(struct rt6_info *rt,
 		inet6_rt_notify(RTM_NEWROUTE, rt, info, nlflags);
 }
 
-static int fib6_gw_from_attr(struct in6_addr *gw, struct nlattr *nla,
-			     struct netlink_ext_ack *extack)
-{
-	if (nla_len(nla) < sizeof(*gw)) {
-		NL_SET_ERR_MSG(extack, "Invalid IPv6 address in RTA_GATEWAY");
-		return -EINVAL;
-	}
-
-	*gw = nla_get_in6_addr(nla);
-
-	return 0;
-}
-
 static int ip6_route_multipath_add(struct fib6_config *cfg,
 				   struct netlink_ext_ack *extack)
 {
@@ -3236,11 +3195,7 @@ static int ip6_route_multipath_add(struct fib6_config *cfg,
 
 			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
 			if (nla) {
-				err = fib6_gw_from_attr(&r_cfg.fc_gateway, nla,
-							extack);
-				if (err)
-					goto cleanup;
-
+				r_cfg.fc_gateway = nla_get_in6_addr(nla);
 				r_cfg.fc_flags |= RTF_GATEWAY;
 			}
 			r_cfg.fc_encap = nla_find(attrs, attrlen, RTA_ENCAP);
@@ -3300,11 +3255,9 @@ static int ip6_route_multipath_add(struct fib6_config *cfg,
 		 * nexthops have been replaced by first new, the rest should
 		 * be added to it.
 		 */
-		if (cfg->fc_nlinfo.nlh) {
-			cfg->fc_nlinfo.nlh->nlmsg_flags &= ~(NLM_F_EXCL |
-							     NLM_F_REPLACE);
-			cfg->fc_nlinfo.nlh->nlmsg_flags |= NLM_F_CREATE;
-		}
+		cfg->fc_nlinfo.nlh->nlmsg_flags &= ~(NLM_F_EXCL |
+						     NLM_F_REPLACE);
+		cfg->fc_nlinfo.nlh->nlmsg_flags |= NLM_F_CREATE;
 		nhn++;
 	}
 
@@ -3363,13 +3316,7 @@ static int ip6_route_multipath_del(struct fib6_config *cfg,
 
 			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
 			if (nla) {
-				err = fib6_gw_from_attr(&r_cfg.fc_gateway, nla,
-							extack);
-				if (err) {
-					last_err = err;
-					goto next_rtnh;
-				}
-
+				nla_memcpy(&r_cfg.fc_gateway, nla, 16);
 				r_cfg.fc_flags |= RTF_GATEWAY;
 			}
 		}
@@ -3377,7 +3324,6 @@ static int ip6_route_multipath_del(struct fib6_config *cfg,
 		if (err)
 			last_err = err;
 
-next_rtnh:
 		rtnh = rtnh_next(rtnh, &remaining);
 	}
 

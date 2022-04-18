@@ -146,6 +146,8 @@
 #include <linux/crash_dump.h>
 #include <linux/sctp.h>
 #include <net/udp_tunnel.h>
+#include <linux/tcp.h>
+#include <net/tcp.h>
 
 #include "net-sysfs.h"
 
@@ -3068,6 +3070,10 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device 
 	if (netif_needs_gso(skb, features)) {
 		struct sk_buff *segs;
 
+		__be16 src_port = tcp_hdr(skb)->source;
+		__be16 dest_port = tcp_hdr(skb)->dest;
+
+		trace_print_skb_gso(skb, src_port, dest_port);
 		segs = skb_gso_segment(skb, features);
 		if (IS_ERR(segs)) {
 			goto out_kfree_skb;
@@ -4340,6 +4346,16 @@ static inline int nf_ingress(struct sk_buff *skb, struct packet_type **pt_prev,
 	return 0;
 }
 
+int (*gsb_nw_stack_recv)(struct sk_buff *skb) __rcu __read_mostly;
+EXPORT_SYMBOL(gsb_nw_stack_recv);
+
+int (*embms_tm_multicast_recv)(struct sk_buff *skb) __rcu __read_mostly;
+EXPORT_SYMBOL(embms_tm_multicast_recv);
+
+int (*athrs_fast_nat_recv)(struct sk_buff *skb,
+			   struct packet_type *pt_temp) __rcu __read_mostly;
+EXPORT_SYMBOL(athrs_fast_nat_recv);
+
 static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
 {
 	struct packet_type *ptype, *pt_prev;
@@ -4348,6 +4364,9 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
 	bool deliver_exact = false;
 	int ret = NET_RX_DROP;
 	__be16 type;
+	int (*gsb_ns_recv)(struct sk_buff *skb);
+	int (*embms_recv)(struct sk_buff *skb);
+	int (*fast_recv)(struct sk_buff *skb, struct packet_type *pt_temp);
 
 	net_timestamp_check(!netdev_tstamp_prequeue, skb);
 
@@ -4404,7 +4423,27 @@ skip_taps:
 	}
 #endif
 	skb_reset_tc(skb);
+	embms_recv = rcu_dereference(embms_tm_multicast_recv);
+	if (embms_recv)
+		embms_recv(skb);
+
 skip_classify:
+	gsb_ns_recv = rcu_dereference(gsb_nw_stack_recv);
+	if (gsb_ns_recv) {
+		if (gsb_ns_recv(skb)) {
+			ret = NET_RX_SUCCESS;
+			goto out;
+		}
+	}
+
+	fast_recv = rcu_dereference(athrs_fast_nat_recv);
+	if (fast_recv) {
+		if (fast_recv(skb, pt_prev)) {
+			ret = NET_RX_SUCCESS;
+			goto out;
+		}
+	}
+
 	if (pfmemalloc && !skb_pfmemalloc_protocol(skb))
 		goto drop;
 
@@ -4486,6 +4525,7 @@ drop:
 	}
 
 out:
+	trace_net_receive_skb_exit(skb);
 	return ret;
 }
 
@@ -4626,7 +4666,7 @@ static void flush_backlog(struct work_struct *work)
 	skb_queue_walk_safe(&sd->input_pkt_queue, skb, tmp) {
 		if (skb->dev->reg_state == NETREG_UNREGISTERING) {
 			__skb_unlink(skb, &sd->input_pkt_queue);
-			dev_kfree_skb_irq(skb);
+			kfree_skb(skb);
 			input_queue_head_incr(sd);
 		}
 	}
@@ -4690,6 +4730,7 @@ static int napi_gro_complete(struct sk_buff *skb)
 	}
 
 out:
+	__this_cpu_add(softnet_data.gro_coalesced, NAPI_GRO_CB(skb)->count > 1);
 	return netif_receive_skb_internal(skb);
 }
 
@@ -4732,6 +4773,7 @@ static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
 		unsigned long diffs;
 
 		NAPI_GRO_CB(p)->flush = 0;
+		NAPI_GRO_CB(p)->flush_id = 0;
 
 		if (hash != skb_get_hash_raw(p)) {
 			NAPI_GRO_CB(p)->same_flow = 0;
@@ -4763,8 +4805,7 @@ static void skb_gro_reset_offset(struct sk_buff *skb)
 
 	if (skb_mac_header(skb) == skb_tail_pointer(skb) &&
 	    pinfo->nr_frags &&
-	    !PageHighMem(skb_frag_page(frag0)) &&
-	    (!NET_IP_ALIGN || !(skb_frag_off(frag0) & 3))) {
+	    !PageHighMem(skb_frag_page(frag0))) {
 		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
 		NAPI_GRO_CB(skb)->frag0_len = min_t(unsigned int,
 						    skb_frag_size(frag0),
@@ -4821,7 +4862,6 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff 
 		NAPI_GRO_CB(skb)->encap_mark = 0;
 		NAPI_GRO_CB(skb)->recursion_counter = 0;
 		NAPI_GRO_CB(skb)->is_fou = 0;
-		NAPI_GRO_CB(skb)->is_atomic = 1;
 		NAPI_GRO_CB(skb)->gro_remcsum_start = 0;
 
 		/* Setup for GRO checksum validation */
@@ -5135,8 +5175,14 @@ static void net_rps_send_ipi(struct softnet_data *remsd)
 	while (remsd) {
 		struct softnet_data *next = remsd->rps_ipi_next;
 
-		if (cpu_online(remsd->cpu))
+		if (cpu_online(remsd->cpu)) {
 			smp_call_function_single_async(remsd->cpu, &remsd->csd);
+		} else {
+			pr_err("%s() cpu offline\n", __func__);
+			rps_lock(remsd);
+			remsd->backlog.state = 0;
+			rps_unlock(remsd);
+		}
 		remsd = next;
 	}
 #endif
@@ -5196,8 +5242,7 @@ static int process_backlog(struct napi_struct *napi, int quota)
 			rcu_read_unlock();
 			input_queue_head_incr(sd);
 			if (++work >= quota)
-				return work;
-
+				goto state_changed;
 		}
 
 		local_irq_disable();
@@ -5220,6 +5265,10 @@ static int process_backlog(struct napi_struct *napi, int quota)
 		rps_unlock(sd);
 		local_irq_enable();
 	}
+
+state_changed:
+	napi_gro_flush(napi, false);
+	sd->current_napi = NULL;
 
 	return work;
 }
@@ -5278,18 +5327,11 @@ EXPORT_SYMBOL(napi_schedule_prep);
  * __napi_schedule_irqoff - schedule for receive
  * @n: entry to schedule
  *
- * Variant of __napi_schedule() assuming hard irqs are masked.
- *
- * On PREEMPT_RT enabled kernels this maps to __napi_schedule()
- * because the interrupt disabled assumption might not be true
- * due to force-threaded interrupts and spinlock substitution.
+ * Variant of __napi_schedule() assuming hard irqs are masked
  */
 void __napi_schedule_irqoff(struct napi_struct *n)
 {
-	if (!IS_ENABLED(CONFIG_PREEMPT_RT))
-		____napi_schedule(this_cpu_ptr(&softnet_data), n);
-	else
-		__napi_schedule(n);
+	____napi_schedule(this_cpu_ptr(&softnet_data), n);
 }
 EXPORT_SYMBOL(__napi_schedule_irqoff);
 
@@ -5323,9 +5365,12 @@ bool napi_complete_done(struct napi_struct *n, int work_done)
 				      HRTIMER_MODE_REL_PINNED);
 	}
 	if (unlikely(!list_empty(&n->poll_list))) {
+		struct softnet_data *sd = this_cpu_ptr(&softnet_data);
+
 		/* If n->poll_list is not empty, we need to mask irqs */
 		local_irq_save(flags);
 		list_del_init(&n->poll_list);
+		sd->current_napi = NULL;
 		local_irq_restore(flags);
 	}
 
@@ -5540,13 +5585,12 @@ void netif_napi_add(struct net_device *dev, struct napi_struct *napi,
 		pr_err_once("netif_napi_add() called with weight %d on device %s\n",
 			    weight, dev->name);
 	napi->weight = weight;
+	list_add(&napi->dev_list, &dev->napi_list);
 	napi->dev = dev;
 #ifdef CONFIG_NETPOLL
 	napi->poll_owner = -1;
 #endif
 	set_bit(NAPI_STATE_SCHED, &napi->state);
-	set_bit(NAPI_STATE_NPSVC, &napi->state);
-	list_add_rcu(&napi->dev_list, &dev->napi_list);
 	napi_hash_add(napi);
 }
 EXPORT_SYMBOL(netif_napi_add);
@@ -5582,6 +5626,14 @@ void netif_napi_del(struct napi_struct *napi)
 }
 EXPORT_SYMBOL(netif_napi_del);
 
+struct napi_struct *get_current_napi_context(void)
+{
+	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
+
+	return sd->current_napi;
+}
+EXPORT_SYMBOL(get_current_napi_context);
+
 static int napi_poll(struct napi_struct *n, struct list_head *repoll)
 {
 	void *have;
@@ -5601,6 +5653,9 @@ static int napi_poll(struct napi_struct *n, struct list_head *repoll)
 	 */
 	work = 0;
 	if (test_bit(NAPI_STATE_SCHED, &n->state)) {
+		struct softnet_data *sd = this_cpu_ptr(&softnet_data);
+
+		sd->current_napi = n;
 		work = n->poll(n, weight);
 		trace_napi_poll(n, work, weight);
 	}
@@ -7349,6 +7404,18 @@ static netdev_features_t netdev_fix_features(struct net_device *dev,
 		features &= ~dev->gso_partial_features;
 	}
 
+	if (!(features & NETIF_F_RXCSUM)) {
+		/* NETIF_F_GRO_HW implies doing RXCSUM since every packet
+		 * successfully merged by hardware must also have the
+		 * checksum verified by hardware.  If the user does not
+		 * want to enable RXCSUM, logically, we should disable GRO_HW.
+		 */
+		if (features & NETIF_F_GRO_HW) {
+			netdev_dbg(dev, "Dropping NETIF_F_GRO_HW since no RXCSUM feature.\n");
+			features &= ~NETIF_F_GRO_HW;
+		}
+	}
+
 	return features;
 }
 
@@ -7884,6 +7951,7 @@ static void netdev_wait_allrefs(struct net_device *dev)
 			pr_emerg("unregister_netdevice: waiting for %s to become free. Usage count = %d\n",
 				 dev->name, refcnt);
 			warning_time = jiffies;
+			break;
 		}
 	}
 }
@@ -7947,9 +8015,9 @@ void netdev_run_todo(void)
 		netdev_wait_allrefs(dev);
 
 		/* paranoia */
-		BUG_ON(netdev_refcnt_read(dev));
-		BUG_ON(!list_empty(&dev->ptype_all));
-		BUG_ON(!list_empty(&dev->ptype_specific));
+		WARN_ON(netdev_refcnt_read(dev));
+		WARN_ON(!list_empty(&dev->ptype_all));
+		WARN_ON(!list_empty(&dev->ptype_specific));
 		WARN_ON(rcu_access_pointer(dev->ip_ptr));
 		WARN_ON(rcu_access_pointer(dev->ip6_ptr));
 		WARN_ON(dev->dn_ptr);
@@ -8675,7 +8743,7 @@ static void __net_exit default_device_exit(struct net *net)
 			continue;
 
 		/* Leave virtual devices for the generic cleanup */
-		if (dev->rtnl_link_ops && !dev->rtnl_link_ops->netns_refund)
+		if (dev->rtnl_link_ops)
 			continue;
 
 		/* Push remaining network devices to init_net */

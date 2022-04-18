@@ -420,7 +420,7 @@ static void tcp_fixup_rcvbuf(struct sock *sk)
 	int rcvmem;
 
 	rcvmem = 2 * SKB_TRUESIZE(mss + MAX_TCP_HEADER) *
-		 tcp_default_init_rwnd(mss);
+		 tcp_default_init_rwnd(sock_net(sk), mss);
 
 	/* Dynamic Right Sizing (DRS) has 2 to 3 RTT latency
 	 * Allow enough cushion so that sender is not limited by our window
@@ -1225,7 +1225,7 @@ static u8 tcp_sacktag_one(struct sock *sk,
 	if (dup_sack && (sacked & TCPCB_RETRANS)) {
 		if (tp->undo_marker && tp->undo_retrans > 0 &&
 		    after(end_seq, tp->undo_marker))
-			tp->undo_retrans = max_t(int, 0, tp->undo_retrans - pcount);
+			tp->undo_retrans--;
 		if (sacked & TCPCB_SACKED_ACKED)
 			state->reord = min(fack_count, state->reord);
 	}
@@ -2803,8 +2803,7 @@ static void tcp_rack_identify_loss(struct sock *sk, int *ack_flag)
 	if (sysctl_tcp_recovery & TCP_RACK_LOSS_DETECTION) {
 		u32 prior_retrans = tp->retrans_out;
 
-		if (tcp_rack_mark_lost(sk))
-			*ack_flag &= ~FLAG_SET_XMIT_TIMER;
+		tcp_rack_mark_lost(sk);
 		if (prior_retrans > tp->retrans_out)
 			*ack_flag |= FLAG_LOST_RETRANS;
 	}
@@ -3517,8 +3516,10 @@ static void tcp_replace_ts_recent(struct tcp_sock *tp, u32 seq)
 	}
 }
 
-/* This routine deals with acks during a TLP episode and ends an episode by
- * resetting tlp_high_seq. Ref: TLP algorithm in draft-ietf-tcpm-rack
+/* This routine deals with acks during a TLP episode.
+ * We mark the end of a TLP episode on receiving TLP dupack or when
+ * ack is after tlp_high_seq.
+ * Ref: loss detection algorithm in draft-dukkipati-tcpm-tcp-loss-probe.
  */
 static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
 {
@@ -3527,10 +3528,7 @@ static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
 	if (before(ack, tp->tlp_high_seq))
 		return;
 
-	if (!tp->tlp_retrans) {
-		/* TLP of new data has been acknowledged */
-		tp->tlp_high_seq = 0;
-	} else if (flag & FLAG_DSACKING_ACK) {
+	if (flag & FLAG_DSACKING_ACK) {
 		/* This DSACK means original and TLP probe arrived; no loss */
 		tp->tlp_high_seq = 0;
 	} else if (after(ack, tp->tlp_high_seq)) {
@@ -3689,15 +3687,14 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
 
 	if (tp->tlp_high_seq)
 		tcp_process_tlp_ack(sk, ack, flag);
+	/* If needed, reset TLP/RTO timer; RACK may later override this. */
+	if (flag & FLAG_SET_XMIT_TIMER)
+		tcp_set_xmit_timer(sk);
 
 	if (tcp_ack_is_dubious(sk, flag)) {
 		is_dupack = !(flag & (FLAG_SND_UNA_ADVANCED | FLAG_NOT_DUP));
 		tcp_fastretrans_alert(sk, acked, is_dupack, &flag, &rexmit);
 	}
-
-	/* If needed, reset TLP/RTO timer when RACK doesn't set. */
-	if (flag & FLAG_SET_XMIT_TIMER)
-		tcp_set_xmit_timer(sk);
 
 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag & FLAG_NOT_DUP))
 		sk_dst_confirm(sk);
@@ -5143,7 +5140,8 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
 	struct tcp_sock *tp = tcp_sk(sk);
 
 	    /* More than one full frame received... */
-	if (((tp->rcv_nxt - tp->rcv_wup) > inet_csk(sk)->icsk_ack.rcv_mss &&
+	if (((tp->rcv_nxt - tp->rcv_wup) > (inet_csk(sk)->icsk_ack.rcv_mss) *
+					sysctl_tcp_delack_seg &&
 	     /* ... and right edge of window advances far enough.
 	      * (tcp_recvmsg() will send ACK otherwise). Or...
 	      */
@@ -5541,8 +5539,6 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 				tcp_data_snd_check(sk);
 				if (!inet_csk_ack_scheduled(sk))
 					goto no_ack;
-			} else {
-				tcp_update_wl(tp, TCP_SKB_CB(skb)->seq);
 			}
 
 			__tcp_ack_snd_check(sk, 0);

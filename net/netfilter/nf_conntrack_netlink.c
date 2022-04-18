@@ -196,7 +196,6 @@ static int ctnetlink_dump_helpinfo(struct sk_buff *skb,
 	if (!help)
 		return 0;
 
-	rcu_read_lock();
 	helper = rcu_dereference(help->helper);
 	if (!helper)
 		goto out;
@@ -212,11 +211,9 @@ static int ctnetlink_dump_helpinfo(struct sk_buff *skb,
 
 	nla_nest_end(skb, nest_helper);
 out:
-	rcu_read_unlock();
 	return 0;
 
 nla_put_failure:
-	rcu_read_unlock();
 	return -1;
 }
 
@@ -733,6 +730,10 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
 		if (events & (1 << IPCT_SEQADJ) &&
 		    ctnetlink_dump_ct_seq_adj(skb, ct) < 0)
 			goto nla_put_failure;
+
+		if (events & (1 << IPCT_COUNTER) &&
+		    ctnetlink_dump_acct(skb, ct, 0) < 0)
+			goto nla_put_failure;
 	}
 
 #ifdef CONFIG_NF_CONNTRACK_MARK
@@ -1046,8 +1047,6 @@ ctnetlink_parse_tuple(const struct nlattr * const cda[],
 	if (!tb[CTA_TUPLE_IP])
 		return -EINVAL;
 
-	if (l3num != NFPROTO_IPV4 && l3num != NFPROTO_IPV6)
-		return -EOPNOTSUPP;
 	tuple->src.l3num = l3num;
 
 	err = ctnetlink_parse_tuple_ip(tb[CTA_TUPLE_IP], tuple);
@@ -1578,12 +1577,23 @@ static int ctnetlink_change_timeout(struct nf_conn *ct,
 				    const struct nlattr * const cda[])
 {
 	u_int32_t timeout = ntohl(nla_get_be32(cda[CTA_TIMEOUT]));
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+	bool (*nattype_ref_timer)
+		(unsigned long nattype,
+		unsigned long timeout_value);
+#endif
 
 	ct->timeout = nfct_time_stamp + timeout * HZ;
 
 	if (test_bit(IPS_DYING_BIT, &ct->status))
 		return -ETIME;
 
+/* Refresh the NAT type entry. */
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+	nattype_ref_timer = rcu_dereference(nattype_refresh_timer);
+	if (nattype_ref_timer)
+		nattype_ref_timer(ct->nattype_entry, ct->timeout);
+#endif
 	return 0;
 }
 

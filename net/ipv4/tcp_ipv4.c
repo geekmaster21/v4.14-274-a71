@@ -285,7 +285,7 @@ void tcp_v4_mtu_reduced(struct sock *sk)
 
 	if ((1 << sk->sk_state) & (TCPF_LISTEN | TCPF_CLOSE))
 		return;
-	mtu = READ_ONCE(tcp_sk(sk)->mtu_info);
+	mtu = tcp_sk(sk)->mtu_info;
 	dst = inet_csk_update_pmtu(sk, mtu);
 	if (!dst)
 		return;
@@ -453,7 +453,7 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
 			if (sk->sk_state == TCP_LISTEN)
 				goto out;
 
-			WRITE_ONCE(tp->mtu_info, info);
+			tp->mtu_info = info;
 			if (!sock_owned_by_user(sk)) {
 				tcp_v4_mtu_reduced(sk);
 			} else {
@@ -2087,7 +2087,6 @@ static void *tcp_get_idx(struct seq_file *seq, loff_t pos)
 static void *tcp_seek_last_pos(struct seq_file *seq)
 {
 	struct tcp_iter_state *st = seq->private;
-	int bucket = st->bucket;
 	int offset = st->offset;
 	int orig_num = st->num;
 	void *rc = NULL;
@@ -2098,7 +2097,7 @@ static void *tcp_seek_last_pos(struct seq_file *seq)
 			break;
 		st->state = TCP_SEQ_STATE_LISTENING;
 		rc = listening_get_next(seq, NULL);
-		while (offset-- && rc && bucket == st->bucket)
+		while (offset-- && rc)
 			rc = listening_get_next(seq, rc);
 		if (rc)
 			break;
@@ -2109,7 +2108,7 @@ static void *tcp_seek_last_pos(struct seq_file *seq)
 		if (st->bucket > tcp_hashinfo.ehash_mask)
 			break;
 		rc = established_get_first(seq);
-		while (offset-- && rc && bucket == st->bucket)
+		while (offset-- && rc)
 			rc = established_get_next(seq, rc);
 	}
 
@@ -2265,6 +2264,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i)
 	__be32 src = inet->inet_rcv_saddr;
 	__u16 destp = ntohs(inet->inet_dport);
 	__u16 srcp = ntohs(inet->inet_sport);
+	__u8 seq_state = sk->sk_state;
 	int rx_queue;
 	int state;
 
@@ -2284,6 +2284,9 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i)
 		timer_expires = jiffies;
 	}
 
+	if (inet->transparent)
+		seq_state |= 0x80;
+
 	state = sk_state_load(sk);
 	if (state == TCP_LISTEN)
 		rx_queue = sk->sk_ack_backlog;
@@ -2295,7 +2298,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i)
 
 	seq_printf(f, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
 			"%08X %5u %8d %lu %d %pK %lu %lu %u %u %d",
-		i, src, srcp, dest, destp, state,
+		i, src, srcp, dest, destp, seq_state,
 		tp->write_seq - tp->snd_una,
 		rx_queue,
 		timer_active,
@@ -2515,6 +2518,7 @@ static int __net_init tcp_sk_init(struct net *net)
 	net->ipv4.sysctl_tcp_sack = 1;
 	net->ipv4.sysctl_tcp_window_scaling = 1;
 	net->ipv4.sysctl_tcp_timestamps = 1;
+	net->ipv4.sysctl_tcp_default_init_rwnd = TCP_INIT_CWND * 2;
 
 	return 0;
 fail:
