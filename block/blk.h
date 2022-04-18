@@ -66,7 +66,7 @@ void blk_rq_bio_prep(struct request_queue *q, struct request *rq,
 void blk_queue_bypass_start(struct request_queue *q);
 void blk_queue_bypass_end(struct request_queue *q);
 void __blk_queue_free_tags(struct request_queue *q);
-void blk_freeze_queue(struct request_queue *q);
+bool blk_freeze_queue(struct request_queue *q);
 
 static inline void blk_queue_enter_live(struct request_queue *q)
 {
@@ -141,6 +141,18 @@ static inline void blk_clear_rq_complete(struct request *rq)
 {
 	clear_bit(REQ_ATOM_COMPLETE, &rq->atomic_flags);
 }
+
+#ifdef CONFIG_BLK_IO_VOLUME
+void blk_queue_reset_io_vol(struct request_queue *q);
+void blk_queue_io_vol_add(struct request_queue *q, int opf, long long bytes);
+void blk_queue_io_vol_del(struct request_queue *q, int opf, long long bytes);
+void blk_queue_io_vol_merge(struct request_queue *q, int opf, int rqs, long long bytes);
+#else
+#define blk_queue_reset_io_vol(q)			do {} while (0)
+#define blk_queue_io_vol_add(q, opf, bytes)		do {} while (0)
+#define blk_queue_io_vol_del(q, opf, bytes)		do {} while (0)
+#define blk_queue_io_vol_merge(q, opf, rqs, bytes)	do {} while (0)
+#endif
 
 /*
  * Internal elevator interface
