@@ -379,6 +379,11 @@ void drm_vblank_disable_and_save(struct drm_device *dev, unsigned int pipe)
 	spin_unlock_irqrestore(&dev->vblank_time_lock, irqflags);
 }
 
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO)
+#include <linux/sched/clock.h>
+#include "./msm/samsung_lego/ss_dsi_panel_debug.h"
+#endif
+
 static void vblank_disable_fn(unsigned long arg)
 {
 	struct drm_vblank_crtc *vblank = (void *)arg;
@@ -1014,9 +1019,13 @@ static void drm_vblank_put(struct drm_device *dev, unsigned int pipe)
 			return;
 		else if (drm_vblank_offdelay < 0)
 			vblank_disable_fn((unsigned long)vblank);
-		else if (!dev->vblank_disable_immediate)
+		else if (!dev->vblank_disable_immediate) {
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO) // case 04436106
+			SS_XLOG_VSYNC();
+#endif
 			mod_timer(&vblank->disable_timer,
 				  jiffies + ((drm_vblank_offdelay * HZ)/1000));
+		}
 	}
 }
 
@@ -1401,9 +1410,11 @@ static bool drm_wait_vblank_is_query(union drm_wait_vblank *vblwait)
 int drm_wait_vblank_ioctl(struct drm_device *dev, void *data,
 			  struct drm_file *file_priv)
 {
+	struct drm_crtc *crtc;
 	struct drm_vblank_crtc *vblank;
 	union drm_wait_vblank *vblwait = data;
 	int ret;
+	unsigned int pipe_index;
 	unsigned int flags, seq, pipe, high_pipe;
 
 	if (!dev->irq_enabled)
@@ -1425,9 +1436,25 @@ int drm_wait_vblank_ioctl(struct drm_device *dev, void *data,
 	flags = vblwait->request.type & _DRM_VBLANK_FLAGS_MASK;
 	high_pipe = (vblwait->request.type & _DRM_VBLANK_HIGH_CRTC_MASK);
 	if (high_pipe)
-		pipe = high_pipe >> _DRM_VBLANK_HIGH_CRTC_SHIFT;
+		pipe_index = high_pipe >> _DRM_VBLANK_HIGH_CRTC_SHIFT;
 	else
-		pipe = flags & _DRM_VBLANK_SECONDARY ? 1 : 0;
+		pipe_index = flags & _DRM_VBLANK_SECONDARY ? 1 : 0;
+
+	/* Convert lease-relative crtc index into global crtc index */
+	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+		pipe = 0;
+		drm_for_each_crtc(crtc, dev) {
+			if (drm_lease_held(file_priv, crtc->base.id)) {
+				if (pipe_index == 0)
+					break;
+				pipe_index--;
+			}
+			pipe++;
+		}
+	} else {
+		pipe = pipe_index;
+	}
+
 	if (pipe >= dev->num_crtcs)
 		return -EINVAL;
 
@@ -1525,6 +1552,15 @@ static void drm_handle_vblank_events(struct drm_device *dev, unsigned int pipe)
 
 		list_del(&e->base.link);
 		drm_vblank_put(dev, pipe);
+
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO) // case 04436106
+		/* Now timestamp will be registered pending drm event.
+		 * Then, GFX HAL will reads it using drm file.
+		 * -> drm_read() returns timestamp value.
+		 */
+		//SS_XLOG_VSYNC(ktime_to_us(now), seq);
+#endif
+
 		send_vblank_event(dev, e, seq, &now);
 	}
 
@@ -1586,6 +1622,11 @@ bool drm_handle_vblank(struct drm_device *dev, unsigned int pipe)
 	drm_handle_vblank_events(dev, pipe);
 
 	spin_unlock_irqrestore(&dev->event_lock, irqflags);
+
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO) // case 04436106
+	if (disable_irq)
+		SS_XLOG_VSYNC();
+#endif
 
 	if (disable_irq)
 		vblank_disable_fn((unsigned long)vblank);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -442,7 +442,7 @@ static int dsi_bus_clk_enable(struct msm_dsi_host *msm_host)
 
 	return 0;
 err:
-	while (--i >= 0)
+	for (; i > 0; i--)
 		clk_disable_unprepare(msm_host->bus_clks[i]);
 
 	return ret;
@@ -996,7 +996,6 @@ static int dsi_tx_buf_alloc(struct msm_dsi_host *msm_host, int size)
 
 		ret = msm_gem_get_iova(msm_host->tx_gem_obj,
 				priv->kms->aspace, &iova);
-		mutex_unlock(&dev->struct_mutex);
 		if (ret) {
 			pr_err("%s: failed to get iova, %d\n", __func__, ret);
 			return ret;
@@ -1563,8 +1562,6 @@ static int dsi_host_parse_lane_data(struct msm_dsi_host *msm_host,
 	if (!prop) {
 		dev_dbg(dev,
 			"failed to find data lane mapping, using default\n");
-		/* Set the number of date lanes to 4 by default. */
-		msm_host->num_data_lanes = 4;
 		return 0;
 	}
 

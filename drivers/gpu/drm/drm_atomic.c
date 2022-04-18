@@ -374,6 +374,11 @@ int drm_atomic_set_mode_for_crtc(struct drm_crtc_state *state,
 }
 EXPORT_SYMBOL(drm_atomic_set_mode_for_crtc);
 
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO)
+void ss_xlog_vrr_change_in_drm_ioctl(int vrefresh, int sot_hs_mode);
+bool ss_is_sot_hs_from_drm_mode(const struct drm_display_mode *drm_mode);
+#endif
+
 /**
  * drm_atomic_set_mode_prop_for_crtc - set mode for CRTC
  * @state: the CRTC whose incoming state to update
@@ -409,6 +414,12 @@ int drm_atomic_set_mode_prop_for_crtc(struct drm_crtc_state *state,
 		state->enable = true;
 		DRM_DEBUG_ATOMIC("Set [MODE:%s] for CRTC state %p\n",
 				 state->mode.name, state);
+
+#if defined(CONFIG_DISPLAY_SAMSUNG_LEGO)
+		ss_xlog_vrr_change_in_drm_ioctl(state->mode.vrefresh,
+				(int)ss_is_sot_hs_from_drm_mode(&state->mode));
+#endif
+
 	} else {
 		state->enable = false;
 		DRM_DEBUG_ATOMIC("Set [NOMODE] for CRTC state %p\n",
@@ -729,7 +740,7 @@ static int drm_atomic_plane_set_property(struct drm_plane *plane,
 	struct drm_mode_config *config = &dev->mode_config;
 
 	if (property == config->prop_fb_id) {
-		struct drm_framebuffer *fb = drm_framebuffer_lookup(dev, val);
+		struct drm_framebuffer *fb = drm_framebuffer_lookup(dev, NULL, val);
 		drm_atomic_set_fb_for_plane(state, fb);
 		if (fb)
 			drm_framebuffer_put(fb);
@@ -745,7 +756,7 @@ static int drm_atomic_plane_set_property(struct drm_plane *plane,
 			return -EINVAL;
 
 	} else if (property == config->prop_crtc_id) {
-		struct drm_crtc *crtc = drm_crtc_find(dev, val);
+		struct drm_crtc *crtc = drm_crtc_find(dev, NULL, val);
 		return drm_atomic_set_crtc_for_plane(state, crtc);
 	} else if (property == config->prop_crtc_x) {
 		state->crtc_x = U642I64(val);
@@ -1160,7 +1171,7 @@ static int drm_atomic_connector_set_property(struct drm_connector *connector,
 	struct drm_mode_config *config = &dev->mode_config;
 
 	if (property == config->prop_crtc_id) {
-		struct drm_crtc *crtc = drm_crtc_find(dev, val);
+		struct drm_crtc *crtc = drm_crtc_find(dev, NULL, val);
 		return drm_atomic_set_crtc_for_connector(state, crtc);
 	} else if (property == config->dpms_property) {
 		/* setting DPMS property requires special handling, which
@@ -2272,7 +2283,7 @@ retry:
 			goto out;
 		}
 
-		obj = drm_mode_object_find(dev, obj_id, DRM_MODE_OBJECT_ANY);
+		obj = drm_mode_object_find(dev, file_priv, obj_id, DRM_MODE_OBJECT_ANY);
 		if (!obj) {
 			ret = -ENOENT;
 			goto out;

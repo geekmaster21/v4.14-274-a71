@@ -2608,7 +2608,7 @@ int drm_atomic_helper_set_config(struct drm_mode_set *set,
 
 	ret = handle_conflicting_encoders(state, true);
 	if (ret)
-		goto fail;
+		return ret;
 
 	ret = drm_atomic_commit(state);
 
@@ -3129,7 +3129,7 @@ struct drm_encoder *
 drm_atomic_helper_best_encoder(struct drm_connector *connector)
 {
 	WARN_ON(connector->encoder_ids[1]);
-	return drm_encoder_find(connector->dev, connector->encoder_ids[0]);
+	return drm_encoder_find(connector->dev, NULL, connector->encoder_ids[0]);
 }
 EXPORT_SYMBOL(drm_atomic_helper_best_encoder);
 
