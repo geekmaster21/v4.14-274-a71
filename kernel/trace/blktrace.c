@@ -498,9 +498,6 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 	if (!buts->buf_size || !buts->buf_nr)
 		return -EINVAL;
 
-	if (!blk_debugfs_root)
-		return -ENOENT;
-
 	strncpy(buts->name, name, BLKTRACE_BDEV_SIZE);
 	buts->name[BLKTRACE_BDEV_SIZE - 1] = '\0';
 
@@ -533,33 +530,16 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 	if (!bt->msg_data)
 		goto err;
 
-#ifdef CONFIG_BLK_DEBUG_FS
-	/*
-	 * When tracing whole make_request drivers (multiqueue) block devices,
-	 * reuse the existing debugfs directory created by the block layer on
-	 * init. For request-based block devices, all partitions block devices,
-	 * and scsi-generic block devices we create a temporary new debugfs
-	 * directory that will be removed once the trace ends.
-	 */
-	if (q->mq_ops && bdev && bdev == bdev->bd_contains)
-		dir = q->debugfs_dir;
-	else
-#endif
+	ret = -ENOENT;
+
+	if (!blk_debugfs_root)
+		goto err;
+
+	dir = debugfs_lookup(buts->name, blk_debugfs_root);
+	if (!dir)
 		bt->dir = dir = debugfs_create_dir(buts->name, blk_debugfs_root);
 	if (!dir)
 		goto err;
-
-	/*
-	 * As blktrace relies on debugfs for its interface the debugfs directory
-	 * is required, contrary to the usual mantra of not checking for debugfs
-	 * files or directories.
-	 */
-	if (IS_ERR_OR_NULL(dir)) {
-		pr_warn("debugfs_dir not present for %s so skipping\n",
-			buts->name);
-		ret = -ENOENT;
-		goto err;
-	}
 
 	bt->dev = dev;
 	atomic_set(&bt->dropped, 0);
@@ -603,6 +583,8 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 
 	ret = 0;
 err:
+	if (dir && !bt->dir)
+		dput(dir);
 	if (ret)
 		blk_trace_free(bt);
 	return ret;
@@ -1679,14 +1661,6 @@ static int blk_trace_remove_queue(struct request_queue *q)
 	if (bt == NULL)
 		return -EINVAL;
 
-	if (bt->trace_state == Blktrace_running) {
-		bt->trace_state = Blktrace_stopped;
-		spin_lock_irq(&running_trace_lock);
-		list_del_init(&bt->running_list);
-		spin_unlock_irq(&running_trace_lock);
-		relay_flush(bt->rchan);
-	}
-
 	put_probe_ref();
 	synchronize_rcu();
 	blk_trace_free(bt);
@@ -1981,6 +1955,8 @@ void blk_trace_remove_sysfs(struct device *dev)
 
 #ifdef CONFIG_EVENT_TRACING
 
+SIO_PATCH_VERSION(ftrace_discard_bugfix, 1, 0, "");
+
 void blk_fill_rwbs(char *rwbs, unsigned int op, int bytes)
 {
 	int i = 0;
@@ -1989,16 +1965,16 @@ void blk_fill_rwbs(char *rwbs, unsigned int op, int bytes)
 		rwbs[i++] = 'F';
 
 	switch (op & REQ_OP_MASK) {
-	case REQ_OP_WRITE:
-	case REQ_OP_WRITE_SAME:
-		rwbs[i++] = 'W';
-		break;
 	case REQ_OP_DISCARD:
 		rwbs[i++] = 'D';
 		break;
 	case REQ_OP_SECURE_ERASE:
 		rwbs[i++] = 'D';
 		rwbs[i++] = 'E';
+		break;
+	case REQ_OP_WRITE:
+	case REQ_OP_WRITE_SAME:
+		rwbs[i++] = 'W';
 		break;
 	case REQ_OP_FLUSH:
 		rwbs[i++] = 'F';
