@@ -73,6 +73,11 @@
 #include <linux/net_tstamp.h>
 #include <net/smc.h>
 
+/* START_OF_KNOX_NPA */
+#define NAP_PROCESS_NAME_LEN	128
+#define NAP_DOMAIN_NAME_LEN	255
+/* END_OF_KNOX_NPA */
+
 /*
  * This structure really needs to be cleaned up.
  * Most of it is for TCP, and not used by any of
@@ -266,7 +271,7 @@ struct sock_common {
   *	@sk_route_nocaps: forbidden route capabilities (e.g NETIF_F_GSO_MASK)
   *	@sk_gso_type: GSO type (e.g. %SKB_GSO_TCPV4)
   *	@sk_gso_max_size: Maximum GSO segment size to build
-  *	@sk_gso_max_segs: Maximum number of GSO segments
+  *	@sk_pacing_shift: scaling factor for TCP Small Queues
   *	@sk_lingertime: %SO_LINGER l_linger setting
   *	@sk_backlog: always used with the per-socket spinlock held
   *	@sk_callback_lock: used with the callbacks in the end of this struct
@@ -446,6 +451,7 @@ struct sock {
 				sk_type      : 16;
 #define SK_PROTOCOL_MAX U8_MAX
 	u16			sk_gso_max_segs;
+	u8			sk_pacing_shift;
 	unsigned long	        sk_lingertime;
 	struct proto		*sk_prot_creator;
 	rwlock_t		sk_callback_lock;
@@ -454,10 +460,8 @@ struct sock {
 	u32			sk_ack_backlog;
 	u32			sk_max_ack_backlog;
 	kuid_t			sk_uid;
-	spinlock_t		sk_peer_lock;
 	struct pid		*sk_peer_pid;
 	const struct cred	*sk_peer_cred;
-
 	long			sk_rcvtimeo;
 	ktime_t			sk_stamp;
 #if BITS_PER_LONG==32
@@ -474,6 +478,20 @@ struct sock {
 #endif
 	struct sock_cgroup_data	sk_cgrp_data;
 	struct mem_cgroup	*sk_memcg;
+	
+	    /* START_OF_KNOX_NPA */
+	uid_t			knox_uid;
+	pid_t			knox_pid;
+	uid_t			knox_dns_uid;
+	char 			domain_name[NAP_DOMAIN_NAME_LEN];
+	char			process_name[NAP_PROCESS_NAME_LEN];
+	uid_t			knox_puid;
+	pid_t			knox_ppid;
+	char			parent_process_name[NAP_PROCESS_NAME_LEN];
+	pid_t			knox_dns_pid;
+	char 			dns_process_name[NAP_PROCESS_NAME_LEN];
+	/* END_OF_KNOX_NPA */
+	
 	void			(*sk_state_change)(struct sock *sk);
 	void			(*sk_data_ready)(struct sock *sk);
 	void			(*sk_write_space)(struct sock *sk);
@@ -818,8 +836,6 @@ static inline int sk_memalloc_socks(void)
 {
 	return static_key_false(&memalloc_socks);
 }
-
-void __receive_sock(struct file *file);
 #else
 
 static inline int sk_memalloc_socks(void)
@@ -827,8 +843,6 @@ static inline int sk_memalloc_socks(void)
 	return 0;
 }
 
-static inline void __receive_sock(struct file *file)
-{ }
 #endif
 
 static inline gfp_t sk_gfp_mask(const struct sock *sk, gfp_t gfp_mask)
@@ -1746,8 +1760,7 @@ static inline u32 net_tx_rndhash(void)
 
 static inline void sk_set_txhash(struct sock *sk)
 {
-	/* This pairs with READ_ONCE() in skb_set_hash_from_sk() */
-	WRITE_ONCE(sk->sk_txhash, net_tx_rndhash());
+	sk->sk_txhash = net_tx_rndhash();
 }
 
 static inline void sk_rethink_txhash(struct sock *sk)
@@ -2021,12 +2034,9 @@ static inline void sock_poll_wait(struct file *filp,
 
 static inline void skb_set_hash_from_sk(struct sk_buff *skb, struct sock *sk)
 {
-	/* This pairs with WRITE_ONCE() in sk_set_txhash() */
-	u32 txhash = READ_ONCE(sk->sk_txhash);
-
-	if (txhash) {
+	if (sk->sk_txhash) {
 		skb->l4_hash = 1;
-		skb->hash = txhash;
+		skb->hash = sk->sk_txhash;
 	}
 }
 
@@ -2438,7 +2448,25 @@ extern int sysctl_optmem_max;
 extern __u32 sysctl_wmem_default;
 extern __u32 sysctl_rmem_default;
 
-/* On 32bit arches, an skb frag is limited to 2^15 */
-#define SKB_FRAG_PAGE_ORDER	get_order(32768)
+/* Default TCP Small queue budget is ~1 ms of data (1sec >> 10)
+ * Some wifi drivers need to tweak it to get more chunks.
+ * They can use this helper from their ndo_start_xmit()
+ */
+static inline void sk_pacing_shift_update(struct sock *sk, int val)
+{
+	if (!sk || !sk_fullsock(sk) || sk->sk_pacing_shift == val)
+		return;
+	sk->sk_pacing_shift = val;
+}
+/* SOCKEV Notifier Events */
+#define SOCKEV_SOCKET   0x00
+#define SOCKEV_BIND     0x01
+#define SOCKEV_LISTEN   0x02
+#define SOCKEV_ACCEPT   0x03
+#define SOCKEV_CONNECT  0x04
+#define SOCKEV_SHUTDOWN 0x05
+
+int sockev_register_notify(struct notifier_block *nb);
+int sockev_unregister_notify(struct notifier_block *nb);
 
 #endif	/* _SOCK_H */

@@ -74,6 +74,7 @@ struct ipcm_cookie {
 	__u8			ttl;
 	__s16			tos;
 	char			priority;
+	__u16			gso_size;
 };
 
 #define IPCB(skb) ((struct inet_skb_parm*)((skb)->cb))
@@ -127,6 +128,7 @@ int ip_build_and_send_pkt(struct sk_buff *skb, const struct sock *sk,
 int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
 	   struct net_device *orig_dev);
 int ip_local_deliver(struct sk_buff *skb);
+void ip_protocol_deliver_rcu(struct net *net, struct sk_buff *skb, int proto);
 int ip_mr_input(struct sk_buff *skb);
 int ip_output(struct net *net, struct sock *sk, struct sk_buff *skb);
 int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb);
@@ -160,7 +162,7 @@ struct sk_buff *ip_make_skb(struct sock *sk, struct flowi4 *fl4,
 					int len, int odd, struct sk_buff *skb),
 			    void *from, int length, int transhdrlen,
 			    struct ipcm_cookie *ipc, struct rtable **rtp,
-			    unsigned int flags);
+			    struct inet_cork *cork, unsigned int flags);
 
 static inline struct sk_buff *ip_finish_skb(struct sock *sk, struct flowi4 *fl4)
 {
@@ -295,6 +297,8 @@ static inline int inet_prot_sock(struct net *net)
 
 __be32 inet_current_timestamp(void);
 
+extern int sysctl_reserved_port_bind;
+
 /* From inetpeer.c */
 extern int inet_peer_threshold;
 extern int inet_peer_minttl;
@@ -364,17 +368,11 @@ static inline unsigned int ip_dst_mtu_maybe_forward(const struct dst_entry *dst,
 						    bool forwarding)
 {
 	struct net *net = dev_net(dst->dev);
-	unsigned int mtu;
 
 	if (net->ipv4.sysctl_ip_fwd_use_pmtu ||
 	    ip_mtu_locked(dst) ||
 	    !forwarding)
 		return dst_mtu(dst);
-
-	/* 'forwarding = true' case should always honour route mtu */
-	mtu = dst_metric_raw(dst, RTAX_MTU);
-	if (mtu)
-		return mtu;
 
 	return min(READ_ONCE(dst->dev->mtu), IP_MAX_MTU);
 }
@@ -399,18 +397,19 @@ static inline void ip_select_ident_segs(struct net *net, struct sk_buff *skb,
 {
 	struct iphdr *iph = ip_hdr(skb);
 
-	/* We had many attacks based on IPID, use the private
-	 * generator as much as we can.
-	 */
-	if (sk && inet_sk(sk)->inet_daddr) {
-		iph->id = htons(inet_sk(sk)->inet_id);
-		inet_sk(sk)->inet_id += segs;
-		return;
-	}
 	if ((iph->frag_off & htons(IP_DF)) && !skb->ignore_df) {
-		iph->id = 0;
+		/* This is only to work around buggy Windows95/2000
+		 * VJ compression implementations.  If the ID field
+		 * does not change, they drop every other packet in
+		 * a TCP stream using header compression.
+		 */
+		if (sk && inet_sk(sk)->inet_daddr) {
+			iph->id = htons(inet_sk(sk)->inet_id);
+			inet_sk(sk)->inet_id += segs;
+		} else {
+			iph->id = 0;
+		}
 	} else {
-		/* Unfortunately we need the big hammer to get a suitable IPID */
 		__ip_select_ident(net, iph, segs);
 	}
 }

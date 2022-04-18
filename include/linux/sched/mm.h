@@ -109,7 +109,7 @@ static inline bool mmget_not_zero(struct mm_struct *mm)
 }
 
 /* mmput gets rid of the mappings and all user-space */
-extern void mmput(struct mm_struct *);
+extern int mmput(struct mm_struct *mm);
 #ifdef CONFIG_MMU
 /* same as above but performs the slow path from the async context. Can
  * be called from the atomic context as well
@@ -171,8 +171,7 @@ static inline bool in_vfork(struct task_struct *tsk)
 	 * another oom-unkillable task does this it should blame itself.
 	 */
 	rcu_read_lock();
-	ret = tsk->vfork_done &&
-			rcu_dereference(tsk->real_parent)->mm == tsk->mm;
+	ret = tsk->vfork_done && tsk->real_parent->mm == tsk->mm;
 	rcu_read_unlock();
 
 	return ret;
