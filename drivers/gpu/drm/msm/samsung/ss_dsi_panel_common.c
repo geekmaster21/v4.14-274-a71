@@ -3572,11 +3572,7 @@ static void ss_panel_parse_dt(struct samsung_display_driver_data *vdd)
 	}
 
 	ss_panel_parse_dt_bright_tables(np, vdd);
-#if KERNEL_VER > 409
 	ss_dsi_panel_parse_cmd_sets(vdd->dtsi_data.cmd_sets, GET_DSI_PANEL(vdd));
-#else
-	ss_dsi_panel_parse_cmd_sets(vdd->dtsi_data.cmd_sets, np);
-#endif
 
 	if (vdd->support_hall_ic) {
 		vdd->hall_ic_notifier_display.priority = 0; /* Tsp is 1, Touch key is 2 */
