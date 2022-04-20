@@ -24,7 +24,7 @@ OEM_UNLOCK_DEPENDENCY=true
 RAMDISK_ENABLE=true
 
 # do signing for rules
-SIGN_ENABLE=true
+SIGN_ENABLE=false
 
 # Immutable Feature is applied with permissive mode first.
 DEFEX_DEFINES := -DDEFEX_PERMISSIVE_IM
