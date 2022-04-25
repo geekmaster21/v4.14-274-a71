@@ -293,7 +293,7 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = 0;
-#if defined(CONFIG_S5KGW1P_SENSOR)
+#ifdef NEVER
 	int i = 0;
 #endif /* NEVER */
 	struct cam_sensor_board_info *sensordata = NULL;
@@ -329,7 +329,7 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 	}
 
 	/* Store the index of BoB regulator if it is available */
-#if defined(CONFIG_S5KGW1P_SENSOR)
+#ifdef NEVER
 	for (i = 0; i < soc_info->num_rgltr; i++) {
 		if (!strcmp(soc_info->rgltr_name[i],
 			"cam_bob")) {
@@ -417,6 +417,11 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 #if defined(CONFIG_SAMSUNG_REAR_TRIPLE)
 	else if (s_ctrl->id == CAMERA_3)
 		rc = cam_sensor_get_dt_camera_info(of_node, rear3_cam_info);
+	/* Added the changes since R5 is triple camera and the macro camera id is 4 - PLM ID : P211006-06816 */
+#if defined(CONFIG_SEC_R5Q_PROJECT) 
+	else if (s_ctrl->id == CAMERA_4)
+		rc = cam_sensor_get_dt_camera_info(of_node, rear3_cam_info);
+#endif
 #endif
 #if defined(CONFIG_SEC_A71_PROJECT) || defined(CONFIG_SEC_M51_PROJECT) || defined(CONFIG_SEC_A52Q_PROJECT) || defined(CONFIG_SEC_A72Q_PROJECT) ||  defined(CONFIG_SEC_M42Q_PROJECT)
 	else if (s_ctrl->id == CAMERA_4)

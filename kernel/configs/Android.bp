@@ -22,7 +22,7 @@ package {
 }
 
 kernel_config {
-    name: "kernel_config_current_4.14",
+    name: "kernel_config_current_5.10",
     srcs: [
         "android-base.config",
         "non_debuggable.config",

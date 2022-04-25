@@ -16,7 +16,7 @@
 #include "cam_actuator_core.h"
 #include "cam_trace.h"
 
-#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4) || defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
+#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
 struct cam_actuator_ctrl_t *g_a_ctrls[2];
 #endif
 
@@ -223,11 +223,9 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 		cam_actuator_apply_request;
 	a_ctrl->last_flush_req = 0;
 	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
-#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4) || defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-	if (a_ctrl->soc_info.index == 0)
-		g_a_ctrls[0] = a_ctrl;
-	else if (a_ctrl->soc_info.index == 2)
-		g_a_ctrls[1] = a_ctrl;
+#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
+        if (a_ctrl->soc_info.index == 0)
+                g_a_ctrls[0] = a_ctrl;
 #endif
 	return rc;
 
@@ -398,11 +396,9 @@ static int32_t cam_actuator_driver_platform_probe(
 
 	platform_set_drvdata(pdev, a_ctrl);
 	a_ctrl->cam_act_state = CAM_ACTUATOR_INIT;
-#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4) || defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-	if (a_ctrl->soc_info.index == 0)
-		g_a_ctrls[0] = a_ctrl;
-	else if (a_ctrl->soc_info.index == 2)
-		g_a_ctrls[1] = a_ctrl;
+#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
+        if (a_ctrl->soc_info.index == 0)
+                g_a_ctrls[0] = a_ctrl;
 #endif
 	return rc;
 

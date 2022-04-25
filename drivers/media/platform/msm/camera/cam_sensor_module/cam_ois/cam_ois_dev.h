@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,8 +27,7 @@
 #include <cam_mem_mgr.h>
 #include <cam_subdev.h>
 #include "cam_soc_util.h"
-#include "cam_context.h"
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
+#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
 #include <linux/wait.h>
 #include <linux/freezer.h>
 #include <linux/slab.h>
@@ -38,9 +37,8 @@
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-#define MAX_BRIDGE_COUNT (2)
-
+#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
+#define MAX_BRIDGE_COUNT (1) /* R5 uses only one OIS device */
 #define OIS_VER_SIZE  (8)
 #define NUM_AF_POSITION (512)
 
@@ -53,10 +51,6 @@ struct cam_ois_shift_table_t {
 enum cam_ois_thread_msg_type {
 	CAM_OIS_THREAD_MSG_START,
 	CAM_OIS_THREAD_MSG_APPLY_SETTING,
-	CAM_OIS_THREAD_MSG_RESET,
-#if defined(CONFIG_SAMSUNG_OIS_TAMODE_CONTROL)
-	CAM_OIS_THREAD_MSG_SET_TAMODE,
-#endif
 	CAM_OIS_THREAD_MSG_MAX
 };
 
@@ -68,8 +62,8 @@ struct cam_ois_thread_msg_t {
 };
 
 typedef struct sysboot_info_type_t{
-	uint32_t ver;
-	uint32_t id;
+  uint32_t ver;
+  uint32_t id;
 } sysboot_info_type;
 
 struct ois_sensor_interface {
@@ -137,7 +131,6 @@ struct cam_ois_intf_params {
 
 /**
  * struct cam_ois_ctrl_t - OIS ctrl private data
- * @device_name     :   ois device_name
  * @pdev            :   platform device
  * @ois_mutex       :   ois mutex
  * @soc_info        :   ois soc related info
@@ -150,6 +143,7 @@ struct cam_ois_intf_params {
  * @i2c_calib_data  :   ois i2c calib settings
  * @ois_device_type :   ois device type
  * @cam_ois_state   :   ois_device_state
+ * @ois_name        :   ois name
  * @ois_fw_flag     :   flag for firmware download
  * @is_ois_calib    :   flag for Calibration data
  * @opcode          :   ois opcode
@@ -157,7 +151,6 @@ struct cam_ois_intf_params {
  *
  */
 struct cam_ois_ctrl_t {
-	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
 	struct platform_device *pdev;
 	struct mutex ois_mutex;
 	struct cam_hw_soc_info soc_info;
@@ -165,7 +158,7 @@ struct cam_ois_ctrl_t {
 	enum cci_i2c_master_t cci_i2c_master;
 	enum cci_device_num cci_num;
 	struct cam_subdev v4l2_dev_str;
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
+#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
 	struct cam_ois_intf_params bridge_intf[MAX_BRIDGE_COUNT];
 	int bridge_cnt;
 #else
@@ -176,11 +169,12 @@ struct cam_ois_ctrl_t {
 	struct i2c_settings_array i2c_mode_data;
 	enum msm_camera_device_type_t ois_device_type;
 	enum cam_ois_state cam_ois_state;
+	char device_name[20];
 	char ois_name[32];
 	uint8_t ois_fw_flag;
 	uint8_t is_ois_calib;
 	struct cam_ois_opcode opcode;
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32) || defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
+#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
 	int start_cnt;
 	bool is_power_up;
 	bool is_servo_on;

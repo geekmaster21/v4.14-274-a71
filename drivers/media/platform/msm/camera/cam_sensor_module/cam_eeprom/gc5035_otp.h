@@ -13,8 +13,6 @@
 #ifndef GC5035_OTP_H
 #define GC5035_OTP_H
 
-#include "cam_eeprom_dev.h"
-
 #define SENSOR_OTP_CONTROL_REGISTER				0x0A00
 #define SENSOR_OTP_ERROR_FLAG_REGISTER			0x6f
 #define SENSOR_OTP_PAGE_SELECT_REGISTER			0xfe
@@ -28,8 +26,6 @@
 #define SENSOR_OTP_SENSOR_ID_OFFSET				0x0090
 //#define SENSOR_OTP_SENSOR_ID_SIZE				0x0010
 #define SENSOR_OTP_SENSOR_MODULE_FW_OFFSET		0x0010
-
-static int cam_otp_gc5035_read_memory(struct cam_eeprom_ctrl_t *e_ctrl, struct cam_eeprom_memory_block_t *block);
 
 /*============== Load setfile =====================*/
 #if 0

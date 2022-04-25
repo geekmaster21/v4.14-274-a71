@@ -387,10 +387,6 @@ static int fake_id(int app_id)
 	return ret_id;
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 8899d9a91c29 (sm7125: Fixup mdnie mode_max)
 static ssize_t scenario_store(struct device *dev,
 					  struct device_attribute *attr,
 					  const char *buf, size_t size)

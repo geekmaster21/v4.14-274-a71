@@ -18,11 +18,7 @@
 #include "cam_res_mgr_api.h"
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-#include "cam_ois_core.h"
-#include "cam_ois_mcu_stm32g.h"
-extern struct cam_ois_ctrl_t *g_o_ctrl;
-#endif
+
 #if defined(CONFIG_SAMSUNG_HW_SOFTLANDING)
 #define ACTUATOR_IDLE 0x0
 #define ACTUATOR_BUSY 0x1
@@ -141,7 +137,7 @@ int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 #if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
 	//skip actuator power up and cci1 init , sensor has been power up and ois has init cci1 master 1
 	a_ctrl->io_master_info.cci_client->cci_subdev =
-	cam_cci_get_subdev(a_ctrl->io_master_info.cci_client->cci_device);
+	cam_cci_get_subdev(a_ctrl->io_master_info.cci_client->cci_device);	
 	return rc;
 #endif
 
@@ -155,8 +151,8 @@ int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 #if defined(CONFIG_SAMSUNG_HW_SOFTLANDING)
 static int32_t cam_actuator_i2c_read(struct cam_actuator_ctrl_t *a_ctrl, uint32_t addr,
 		uint32_t *data,
-		enum camera_sensor_i2c_type addr_type,
-		enum camera_sensor_i2c_type data_type)
+        enum camera_sensor_i2c_type addr_type,
+        enum camera_sensor_i2c_type data_type)
 {
 	uint32_t rc = 0;
 
@@ -174,7 +170,7 @@ static int32_t cam_actuator_i2c_read(struct cam_actuator_ctrl_t *a_ctrl, uint32_
 	return rc;
 }
 
-static int32_t cam_actuator_i2c_write(struct cam_actuator_ctrl_t *a_ctrl, uint32_t reg_addr,
+static int32_t cam_actuator_i2c_write(struct cam_actuator_ctrl_t *a_ctrl, uint32_t reg_addr, 
 		uint32_t reg_data, uint32_t data_type)
 {
 	struct cam_sensor_i2c_reg_setting reg_setting;
@@ -199,7 +195,7 @@ static int32_t cam_actuator_i2c_write(struct cam_actuator_ctrl_t *a_ctrl, uint32
 	rc = camera_io_dev_write(&a_ctrl->io_master_info, &reg_setting);
 
 	if (rc < 0) {
-		CAM_ERR(CAM_ACTUATOR, "Failed to random write I2C settings for reg:0x%x 			data:0x%x err:%d", reg_addr, reg_data, rc);
+ 		CAM_ERR(CAM_ACTUATOR, "Failed to random write I2C settings for reg:0x%x data:0x%x err:%d", reg_addr, reg_data, rc);
 	}
 
 	return rc;
@@ -236,14 +232,14 @@ static void cam_actuator_busywait(struct cam_actuator_ctrl_t *a_ctrl)
 			CAM_DBG(CAM_ACTUATOR, "Busy");
 #if defined(CONFIG_SAMSUNG_ACTUATOR_DW9817)
 			msleep(5);
-#elif defined(CONFIG_SAMSUNG_ACTUATOR_DW9808) || defined(CONFIG_SAMSUNG_ACTUATOR_FP5529) || defined(CONFIG_SAMSUNG_HW_SOFTLANDING)
+#elif defined(CONFIG_SAMSUNG_ACTUATOR_DW9808) || defined(CONFIG_SAMSUNG_ACTUATOR_FP5529)
 			msleep(10);
 #endif
 		}
 	       status_check_count++;
 	} while (info && status_check_count < 8);
 
-	if (status_check_count == 8)
+	if(status_check_count == 8)
 	   CAM_ERR(CAM_ACTUATOR, "status check failed");
 	else
 	   CAM_INFO(CAM_ACTUATOR, "Idle");
@@ -272,7 +268,7 @@ static int32_t cam_actuator_do_soft_landing(struct cam_actuator_ctrl_t *a_ctrl)
 	if ((reg_data & 0x01) == 0x01) {
 		CAM_ERR(CAM_ACTUATOR, "park lens skip for dev:0x%x reg[0x02]:0x%x", a_ctrl->io_master_info.client->addr, reg_data);
 		return rc;
-	}
+	}	
 
 	// read DAC value to get position of lens
 	rc = cam_actuator_i2c_read(a_ctrl, 0x03, &pos1, CAMERA_SENSOR_I2C_TYPE_BYTE, CAMERA_SENSOR_I2C_TYPE_BYTE);
@@ -296,7 +292,7 @@ static int32_t cam_actuator_do_soft_landing(struct cam_actuator_ctrl_t *a_ctrl)
 	CAM_INFO(CAM_ACTUATOR, "current position:%d ", position);
 	CAM_INFO(CAM_ACTUATOR, "interval:%d ", interval);
 
-	for (i = 0; i < 3; i++) {
+	for(i = 0; i < 3; i++) {
 		position += interval;
 		rc = cam_actuator_i2c_write(a_ctrl, 0x03, position, CAMERA_SENSOR_I2C_TYPE_WORD);
 		if (rc < 0) {
@@ -313,7 +309,7 @@ static int32_t cam_actuator_do_soft_landing(struct cam_actuator_ctrl_t *a_ctrl)
 }
 #endif
 
-#if defined(CONFIG_SAMSUNG_ACTUATOR_DW9808) || defined(CONFIG_SAMSUNG_ACTUATOR_FP5529) || defined(CONFIG_SAMSUNG_HW_SOFTLANDING)
+#if defined(CONFIG_SAMSUNG_ACTUATOR_DW9808) || defined(CONFIG_SAMSUNG_ACTUATOR_FP5529)
 static int32_t cam_actuator_do_soft_landing(struct cam_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc = 0;
@@ -334,7 +330,7 @@ static int32_t cam_actuator_do_soft_landing(struct cam_actuator_ctrl_t *a_ctrl)
 	if ((reg_data & 0x01) == 0x01) {
 		CAM_ERR(CAM_ACTUATOR, "park lens skip for dev:0x%x reg[0x02]:0x%x", a_ctrl->io_master_info.client->addr, reg_data);
 		return rc;
-	}
+	}	
 
 	// read DAC value to get position of lens
 	rc = cam_actuator_i2c_read(a_ctrl, 0x03, &pos1, CAMERA_SENSOR_I2C_TYPE_BYTE, CAMERA_SENSOR_I2C_TYPE_BYTE);
@@ -356,7 +352,7 @@ static int32_t cam_actuator_do_soft_landing(struct cam_actuator_ctrl_t *a_ctrl)
 	CAM_INFO(CAM_ACTUATOR, "current position:%d ", position);
 
 	/*Max position is 1023, keep half of max. lens position*/
-	if (position > 512) {
+	if( position > 512 ) {
 		position = 512;
 
 		rc = cam_actuator_i2c_write(a_ctrl, 0x03, position - 1, CAMERA_SENSOR_I2C_TYPE_WORD);
@@ -377,14 +373,14 @@ static int32_t cam_actuator_do_soft_landing(struct cam_actuator_ctrl_t *a_ctrl)
 	CAM_INFO(CAM_ACTUATOR, "preset initial position:%d ", position);
 
 	// NRC Time Setting
-	cam_actuator_i2c_write(a_ctrl, 0x0C, 0x85, CAMERA_SENSOR_I2C_TYPE_BYTE);
+	cam_actuator_i2c_write(a_ctrl, 0x0C, 0x85,CAMERA_SENSOR_I2C_TYPE_BYTE);
 	if (rc < 0) {
 		CAM_ERR(CAM_ACTUATOR, "nrc timing issue- i2c write fail err:%d", rc);
 		return -EINVAL;
 	}
 
 	// Enable - softlanding
-	cam_actuator_i2c_write(a_ctrl, 0x0B, 0x01, CAMERA_SENSOR_I2C_TYPE_BYTE);
+	cam_actuator_i2c_write(a_ctrl, 0x0B, 0x01,CAMERA_SENSOR_I2C_TYPE_BYTE);
 	if (rc < 0) {
 		CAM_ERR(CAM_ACTUATOR, "softlanding register configuration failed, rc:%d", rc);
 		return -EINVAL;
@@ -544,11 +540,6 @@ int32_t cam_actuator_apply_settings(struct cam_actuator_ctrl_t *a_ctrl,
 {
 	struct i2c_settings_list *i2c_list;
 	int32_t rc = 0;
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-	int i = 0;
-	int size = 0;
-	int position = -1;
-#endif
 
 #if defined(CONFIG_USE_CAMERA_HW_BIG_DATA)
 	struct cam_hw_param *hw_param = NULL;
@@ -633,34 +624,7 @@ int32_t cam_actuator_apply_settings(struct cam_actuator_ctrl_t *a_ctrl,
 				"Success:request ID: %d",
 				i2c_set->request_id);
 		}
-
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-		if (a_ctrl->soc_info.index != 1) { //not apply on front case
-			size = i2c_list->i2c_settings.size;
-			for (i = 0; i < size; i++) {
-				if (i2c_list->i2c_settings.reg_setting[i].reg_addr == 0x00) {
-					 position = i2c_list->i2c_settings.reg_setting[i].reg_data >> 7; //using word data
-					 CAM_DBG(CAM_ACTUATOR, "Position : %d\n", position);
-					 break;
-				}
-			}
-		}
-#endif
 	}
-
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-	if (a_ctrl->soc_info.index != 1) { //not apply on front case
-		if (g_o_ctrl != NULL) {
-			mutex_lock(&(g_o_ctrl->ois_mutex));
-			if (position >= 0 && position < 512)
-				// 1bit right shift af position, because OIS use 8bit af position
-				cam_ois_shift_calibration(g_o_ctrl, (position >> 1), a_ctrl->soc_info.index);
-			else
-				CAM_DBG(CAM_ACTUATOR, "Position is invalid %d \n", position);
-			mutex_unlock(&(g_o_ctrl->ois_mutex));
-		}
-	}
-#endif
 
 	return rc;
 }
@@ -811,6 +775,7 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 	struct cam_cmd_buf_desc   *cmd_desc = NULL;
 	struct cam_actuator_soc_private *soc_private = NULL;
 	struct cam_sensor_power_ctrl_t  *power_info = NULL;
+	int32_t retry = 0;
 
 	if (!a_ctrl || !arg) {
 		CAM_ERR(CAM_ACTUATOR, "Invalid Args");
@@ -971,8 +936,19 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 			a_ctrl->cam_act_state = CAM_ACTUATOR_CONFIG;
 		}
 
-		rc = cam_actuator_apply_settings(a_ctrl,
-			&a_ctrl->i2c_data.init_settings);
+		for (retry = 0; retry < 3; retry++)
+		{
+			rc = cam_actuator_apply_settings(a_ctrl,
+				&a_ctrl->i2c_data.init_settings);
+			if (rc < 0) {
+				CAM_ERR(CAM_ACTUATOR, "Cannot apply Init settings, retry %d", retry);
+				cam_actuator_power_down(a_ctrl);
+				msleep(20);
+				cam_actuator_power_up(a_ctrl);
+			} else {
+				break;
+			}
+		}
 		if (rc < 0) {
 			CAM_ERR(CAM_ACTUATOR, "Cannot apply Init settings");
 			goto rel_pkt_buf;
@@ -1392,7 +1368,7 @@ int32_t cam_actuator_flush_request(struct cam_req_mgr_flush_request *flush_req)
 	mutex_unlock(&(a_ctrl->actuator_mutex));
 	return rc;
 }
-#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4) || defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
+#if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
 /***** for only ois selftest , set the actuator initial position to 256 *****/
 int16_t cam_actuator_move_for_ois_test(struct cam_actuator_ctrl_t *a_ctrl)
 {

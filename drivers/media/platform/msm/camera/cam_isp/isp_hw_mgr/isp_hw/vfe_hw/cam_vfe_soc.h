@@ -40,7 +40,6 @@ struct cam_vfe_soc_private {
 	struct clk *dsp_clk;
 	int32_t     dsp_clk_index;
 	int32_t     dsp_clk_rate;
-	uint64_t    ife_clk_src;
 };
 
 /*

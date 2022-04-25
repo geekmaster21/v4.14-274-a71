@@ -21,8 +21,6 @@
 #define VALIDATE_VOLTAGE(min, max, config_val) ((config_val) && \
 	(config_val >= min) && (config_val <= max))
 
-uint16_t platformSensorId;
-
 static struct i2c_settings_list*
 	cam_sensor_get_i2c_ptr(struct i2c_settings_array *i2c_reg_settings,
 		uint32_t size)
@@ -635,23 +633,6 @@ int32_t msm_camera_fill_vreg_params(
 						"i: %d j: %d cam_vdig", i, j);
 					power_setting[i].seq_val = j;
 
-					if((soc_info->index == 0) &&
-						(platformSensorId == SENSOR_ID_S5KGW1P))
-					{
-						CAM_ERR(CAM_SENSOR," Inside GW1P Hardcoding Logic");
-						soc_info->rgltr_min_volt[j] = 1000000;
-						soc_info->rgltr_max_volt[j] = 1000000;
-						power_setting[i].config_val = 1000000;
-					}
-					if(((soc_info->index == 1) || (soc_info->index == 8)) &&
-						(platformSensorId == SENSOR_ID_S5KGD2))						
-					{
-						CAM_ERR(CAM_SENSOR,"Inside S5KGD2 Hardcoding Logic");
-						soc_info->rgltr_min_volt[j] = 1000000;
-						soc_info->rgltr_max_volt[j] = 1000000;
-						power_setting[i].config_val = 1000000;
-					}
-
 					if (VALIDATE_VOLTAGE(
 						soc_info->rgltr_min_volt[j],
 						soc_info->rgltr_max_volt[j],
@@ -700,25 +681,6 @@ int32_t msm_camera_fill_vreg_params(
 					CAM_DBG(CAM_SENSOR,
 						"i: %d j: %d cam_vana", i, j);
 					power_setting[i].seq_val = j;
-
-
-					if((soc_info->index == 0) &&
-						(platformSensorId == SENSOR_ID_S5KGW1P))
-					{
-						CAM_ERR(CAM_SENSOR," Inside GW1P Hardcoding Logic");
-						soc_info->rgltr_min_volt[j] = 2800000;
-						soc_info->rgltr_max_volt[j] = 2800000;
-						power_setting[i].config_val = 2800000;
-					}
-					if(((soc_info->index == 1) || (soc_info->index == 8)) &&
-						(platformSensorId == SENSOR_ID_S5KGD2))						
-					{
-						CAM_ERR(CAM_SENSOR,"Inside S5KGD2 Hardcoding Logic");
-						soc_info->rgltr_min_volt[j] = 2800000;
-						soc_info->rgltr_max_volt[j] = 2800000;
-						power_setting[i].config_val = 2800000;
-					}
-
 
 					if (VALIDATE_VOLTAGE(
 						soc_info->rgltr_min_volt[j],
@@ -892,8 +854,8 @@ int cam_sensor_util_request_gpio_table(
 	}
 
 	for (i = 0; i < size; i++) {
-		CAM_ERR(CAM_SENSOR, "i: %d, gpio %d dir %ld label:%s gpio_en=%d",  i,
-			gpio_tbl[i].gpio, gpio_tbl[i].flags, gpio_tbl[i].label, gpio_en);
+		CAM_DBG(CAM_SENSOR, "i: %d, gpio %d dir %ld",  i,
+			gpio_tbl[i].gpio, gpio_tbl[i].flags);
 	}
 
 	if (gpio_en) {
@@ -1535,28 +1497,11 @@ int cam_sensor_bob_pwm_mode_switch(struct cam_hw_soc_info *soc_info,
 		(flag == true) ? soc_info->rgltr_op_mode[bob_reg_idx] : 0;
 
 	if (soc_info->rgltr[bob_reg_idx] != NULL) {
-		if(flag == true) {
-			rc = regulator_set_voltage(soc_info->rgltr[bob_reg_idx], 3300000, 3300000);
-			if (rc)
-				CAM_WARN(CAM_SENSOR, "BoB regulator_set_voltage failed rc: %d", rc);
-			rc = regulator_set_load(soc_info->rgltr[bob_reg_idx],
-				op_current);
-			if (rc)
-				CAM_WARN(CAM_SENSOR, "BoB PWM SetLoad failed rc: %d", rc);
-			rc = regulator_enable(soc_info->rgltr[bob_reg_idx]);
-			if (rc)
-				CAM_WARN(CAM_SENSOR, "BoB regulator_enable failed rc: %d", rc);
-		} else {
-			rc = regulator_set_voltage(soc_info->rgltr[bob_reg_idx], 0, 0);
-			if (rc)
-				CAM_WARN(CAM_SENSOR, "BoB regulator_set_voltage failed rc: %d", rc);
-			rc = regulator_set_load(soc_info->rgltr[bob_reg_idx], op_current);
-			if (rc)
-				CAM_WARN(CAM_SENSOR, "BoB PWM SetLoad failed rc: %d", rc);
-			rc = regulator_disable(soc_info->rgltr[bob_reg_idx]);
-			if (rc)
-				CAM_WARN(CAM_SENSOR, "BoB regulator_disable failed rc: %d", rc);
-		}
+		rc = regulator_set_load(soc_info->rgltr[bob_reg_idx],
+			op_current);
+		if (rc)
+			CAM_WARN(CAM_SENSOR,
+				"BoB PWM SetLoad failed rc: %d", rc);
 	}
 
 	return rc;
@@ -1708,12 +1653,6 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 			return -EINVAL;
 		}
 
-#if defined(CONFIG_SEC_A52Q_PROJECT) || defined(CONFIG_SEC_A72Q_PROJECT)
-		if (power_setting->seq_type == SENSOR_VIO) {
-			usleep_range(15000, 20000);
-		}
-#endif
-
 		CAM_DBG(CAM_SENSOR, "seq_type %d", power_setting->seq_type);
 
 		switch (power_setting->seq_type) {
@@ -1816,7 +1755,6 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		case SENSOR_CUSTOM_REG2:
 		case SENSOR_CUSTOM_REG3:
 		case SENSOR_CUSTOM_REG4:
-		case BOB_PWDM:
 #ifdef NEVER
 			if (power_setting->seq_val == INVALID_VREG)
 				break;

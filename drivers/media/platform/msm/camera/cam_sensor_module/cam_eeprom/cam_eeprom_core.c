@@ -22,73 +22,14 @@
 #include "cam_packet_util.h"
 #include "cam_sensor_i2c.h"
 #include <linux/ctype.h>
-#if defined(CONFIG_SEC_A72Q_PROJECT) || defined(CONFIG_SEC_M42Q_PROJECT)
-#define MAX_EFS_DATA_LENGTH_DUALTILT     (2060)
-#define REAR3_DUAL_CAL_EFS_PATH "/vendor/lib/camera/uw_dual_calibration.bin"
-#endif
+
+
 #define CAM_EEPROM_DBG  1
 //#define CAM_EEPROM_DBG_DUMP  1
 
 #if defined(CONFIG_SAMSUNG_CAMERA_OTP)
 #ifdef CONFIG_GC5035_SENSOR
 #include "gc5035_otp.h"
-#endif
-
-#ifdef CONFIG_S5K3L6_SENSOR
-//#include "s5k3l6_otp.h"
-static int cam_otp_s5k3l6_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
-                               struct cam_eeprom_memory_block_t *block);
-#endif
-
-#ifdef CONFIG_HI1336_SENSOR
-#include "hi1336_otp.h"
-static int cam_otp_hi1336_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
-                               struct cam_eeprom_memory_block_t *block);
-
-struct cam_sensor_i2c_reg_setting load_hi1336_otp_setfile = {
-	load_sensor_hi1336_otp_setfile_reg,
-	sizeof(load_sensor_hi1336_otp_setfile_reg)/sizeof(load_sensor_hi1336_otp_setfile_reg[0]),
-	CAMERA_SENSOR_I2C_TYPE_WORD,
-	CAMERA_SENSOR_I2C_TYPE_WORD,
-	50
-};
-
-struct cam_sensor_i2c_reg_setting hi1336_otp_init_setting1 = {
-	hi1336_otp_init_reg1,
-	sizeof(hi1336_otp_init_reg1)/sizeof(hi1336_otp_init_reg1[0]),
-	CAMERA_SENSOR_I2C_TYPE_WORD,
-	CAMERA_SENSOR_I2C_TYPE_BYTE,
-	10
-};
-
-struct cam_sensor_i2c_reg_setting hi1336_otp_init_setting2 = {
-	hi1336_otp_init_reg2,
-	sizeof(hi1336_otp_init_reg2)/sizeof(hi1336_otp_init_reg2[0]),
-	CAMERA_SENSOR_I2C_TYPE_WORD,
-	CAMERA_SENSOR_I2C_TYPE_BYTE,
-	10
-};
-
-struct cam_sensor_i2c_reg_setting hi1336_otp_finish_setting1 = {
-	hi1336_otp_finish_reg1,
-	sizeof(hi1336_otp_finish_reg1)/sizeof(hi1336_otp_finish_reg1[0]),
-	CAMERA_SENSOR_I2C_TYPE_WORD,
-	CAMERA_SENSOR_I2C_TYPE_BYTE,
-	10
-};
-
-struct cam_sensor_i2c_reg_setting hi1336_otp_finish_setting2 = {
-	hi1336_otp_finish_reg2,
-	sizeof(hi1336_otp_finish_reg2)/sizeof(hi1336_otp_finish_reg2[0]),
-	CAMERA_SENSOR_I2C_TYPE_WORD,
-	CAMERA_SENSOR_I2C_TYPE_BYTE,
-	10
-};
-#endif
-
-#ifdef CONFIG_S5K4HA_SENSOR
-static int cam_otp_s5k4ha_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
-                               struct cam_eeprom_memory_block_t *block);
 #endif
 
 struct cam_sensor_i2c_reg_setting load_otp_setfile = {
@@ -112,7 +53,7 @@ struct cam_sensor_i2c_reg_setting finish_write_otp = {
 };
 
 static int cam_otp_read_memory(struct cam_eeprom_ctrl_t *e_ctrl, struct cam_eeprom_memory_block_t *block);
-#endif //defined(CONFIG_SAMSUNG_CAMERA_OTP)
+#endif
 
 #define MAX_READ_SIZE  0x80000
 
@@ -171,17 +112,10 @@ char rear_tof_load_fw_ver[FROM_MODULE_FW_INFO_SIZE + 1] = "\0";
 char rear_tof_cam_cal_check[SYSFS_FW_VER_SIZE] = "NULL";
 #endif
 #if defined(CONFIG_SAMSUNG_REAR_QUAD)
-#if defined(CONFIG_SEC_A52Q_PROJECT) || defined(CONFIG_SEC_A72Q_PROJECT) || defined(CONFIG_SEC_M42Q_PROJECT)
-char rear4_hw_phone_info[HW_INFO_MAX_SIZE] = HW_INFO_MACRO;
-char rear4_sw_phone_info[SW_INFO_MAX_SIZE] = SW_INFO_MACRO;
-char rear4_vendor_phone_info[VENDOR_INFO_MAX_SIZE] = VENDOR_INFO_MACRO;
-char rear4_process_phone_info[PROCESS_INFO_MAX_SIZE] = PROCESS_INFO_MACRO;
-#else
 char rear4_hw_phone_info[HW_INFO_MAX_SIZE] = FRONT_HW_INFO;
 char rear4_sw_phone_info[SW_INFO_MAX_SIZE] = FRONT_SW_INFO;
 char rear4_vendor_phone_info[VENDOR_INFO_MAX_SIZE] = FRONT_VENDOR_INFO;
 char rear4_process_phone_info[PROCESS_INFO_MAX_SIZE] = FRONT_PROCESS_INFO;
-#endif
 /* Module Manufacturer information	*/
 char rear4_fw_ver[FROM_MODULE_FW_INFO_SIZE + 1] = "\0";
 char rear4_phone_fw_ver[FROM_MODULE_FW_INFO_SIZE + 1] = "\0";
@@ -223,29 +157,8 @@ static unsigned int sec_hw_rev(void)
 {
 	return system_rev;
 }
-
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-extern uint8_t ois_wide_xygg[OIS_XYGG_SIZE];
-extern uint8_t ois_wide_cal_mark;
-uint8_t ois_wide_xysr[OIS_XYSR_SIZE] = { 0, };
-extern int ois_gain_rear_result;
-extern int ois_sr_rear_result;
-#if defined(CONFIG_SAMSUNG_REAR_TRIPLE)
-extern uint8_t ois_wide_center_shift[OIS_CENTER_SHIFT_SIZE];
-extern uint8_t ois_tele_xygg[OIS_XYGG_SIZE];
-extern uint8_t ois_tele_center_shift[OIS_CENTER_SHIFT_SIZE];
-extern uint8_t ois_tele_cal_mark;
-uint8_t ois_tele_xysr[OIS_XYSR_SIZE] = { 0, };
-uint8_t ois_tele_cross_talk[OIS_CROSSTALK_SIZE] = { 0, };
-extern int ois_tele_cross_talk_result;
-extern int ois_gain_rear3_result;
-extern int ois_sr_rear3_result;
-#endif
-#endif
-
 uint32_t CAMERA_NORMAL_CAL_CRC;
 unsigned int board_rev;
-
 
 #ifdef CAM_EEPROM_DBG_DUMP
 static int cam_eeprom_dump(uint32_t subdev_id, uint8_t *mapdata, uint32_t addr, uint32_t size)
@@ -282,85 +195,6 @@ static int cam_eeprom_dump(uint32_t subdev_id, uint8_t *mapdata, uint32_t addr, 
 }
 #endif
 
-static unsigned int is_cam_otp_enabled(struct cam_eeprom_ctrl_t *e_ctrl)
-{
-#if !defined(CONFIG_SAMSUNG_CAMERA_EEPROM_TELE)
-	if(e_ctrl->soc_info.index == CAM_EEPROM_IDX_BOKEH) {
-		return TRUE;
-	}
-#endif
-
-#if defined(CONFIG_SAMSUNG_CAMERA_OTP_UW)
-	if(e_ctrl->soc_info.index == CAM_EEPROM_IDX_ULTRA_WIDE) {
-		return TRUE;
-	}
-#endif
-
-#if defined(CONFIG_SAMSUNG_CAMERA_OTP_MACRO)
-	if(e_ctrl->soc_info.index == CAM_EEPROM_IDX_BACK_MACRO) {
-		return TRUE;
-	}
-#endif
-
-	return FALSE;
-}
-
-
-
-long cam_dualtilt_read_tele_efs(char *efs_path, u8 *buf, int buflen)
-{
-	struct file *fp = NULL;
-	mm_segment_t old_fs;
-	char *filename;
-	long ret = 0, fsize = 2060;
-	loff_t file_offset = 0;
-
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	CAM_INFO(CAM_EEPROM, "read tele efs enter");
-
-	filename = __getname();
-	if (unlikely(!filename)) {
-		set_fs(old_fs);
-		return 0;
-	}
-
-	snprintf(filename, PATH_MAX, "%s", efs_path);
-
-	fp = filp_open(filename, O_RDONLY, 0440);
-	if (IS_ERR_OR_NULL(fp)) {
-		CAM_ERR(CAM_EEPROM, "File open error");
-		__putname(filename);
-		set_fs(old_fs);
-		return 0;
-	}
-
-	ret = vfs_read(fp, buf,2060, &file_offset);
-	if (ret < 0) {
-		CAM_ERR(CAM_OIS, "Fail to Bin file");
-		ret = -1;
-		goto p_err;
-	}
-/*
-	nread = kernel_read(fp, buf, fsize, &file_offset);
-	if (nread != fsize) {
-		CAM_ERR(CAM_EEPROM, "kernel_read was failed(%ld != %ld)",
-			nread, fsize);
-		ret = 0;
-		goto p_err;
-	}
-*/
-	ret = fsize;
-
-p_err:
-	filp_close(fp, NULL);
-	fp = NULL;
-	set_fs(old_fs);
-
-	return ret;
-}
-
 static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 {
 	int rc = 0;
@@ -368,14 +202,7 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 	int i = 0;
 //	char tempbuf[10];
 //	uint8_t data[4] = { 0, };
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-	uint32_t ConfAddr = 0;
-	int isCal = 0, j = 0;
-#endif
-#if defined(CONFIG_SEC_A72Q_PROJECT) || defined(CONFIG_SEC_M42Q_PROJECT)
-	unsigned char *buffer = NULL;
-	long efs_size = 0;
-#endif
+
 	uint8_t loadfrom = 'N';
 	char cal_ver[12] = "";
 	uint8_t sensor_ver[2] = {0,};
@@ -416,11 +243,7 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 			}
 		}
 		else if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_ULTRA_WIDE) {
-			if(is_cam_otp_enabled(e_ctrl)){
-				map_ver = 0;
-			}else{
-				map_ver = e_ctrl->cal_data.mapdata[REAR2_CAM_MAP_VERSION_ADDR];
-			}
+			map_ver = e_ctrl->cal_data.mapdata[REAR2_CAM_MAP_VERSION_ADDR];
 			if(map_ver >= 80 || !isalnum(map_ver)) {
 				CAM_INFO(CAM_EEPROM, "subdev_id: %d, map version = 0x%x", e_ctrl->soc_info.index, map_ver);
 				map_ver = '0';
@@ -440,11 +263,7 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 		}
 #else
 		else if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_BOKEH) {
-			if(is_cam_otp_enabled(e_ctrl)){
-				map_ver = 0;
-			}else{
-				map_ver = e_ctrl->cal_data.mapdata[REAR3_CAM_MAP_VERSION_ADDR];
-			}
+			map_ver = 0;//e_ctrl->cal_data.mapdata[REAR3_CAM_MAP_VERSION_ADDR];
 			if(map_ver >= 80 || !isalnum(map_ver)) {
 				CAM_INFO(CAM_EEPROM, "subdev_id: %d, map version = 0x%x", e_ctrl->soc_info.index, map_ver);
 				map_ver = '0';
@@ -455,11 +274,7 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 #endif
 #if defined(CONFIG_SAMSUNG_REAR_QUAD)
 		else if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_BACK_MACRO) // MACRO cam
-			if(is_cam_otp_enabled(e_ctrl)){
-				map_ver = 0;
-			}else{
-				map_ver = e_ctrl->cal_data.mapdata[SW_CAM_MAP_VERSION_ADDR];
-			}
+			map_ver = e_ctrl->cal_data.mapdata[SW_CAM_MAP_VERSION_ADDR];
 #endif
 #if defined(CONFIG_SAMSUNG_REAR_TOF)
 		else if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_BACK_TOF) // SW cam
@@ -647,6 +462,19 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 				rear3_fw_ver[0], rear3_fw_ver[1], rear3_fw_ver[2], rear3_fw_ver[3], rear3_fw_ver[4],
 				rear3_fw_ver[5], rear3_fw_ver[6], rear3_fw_ver[7], rear3_fw_ver[8], rear3_fw_ver[9],
 				rear3_fw_ver[10]);
+
+			/*rear3 af cal*/
+#if  defined(FROM_REAR3_AF_CAL_MACRO_ADDR)
+		memcpy(&rear3_af_cal[0], &e_ctrl->cal_data.mapdata[FROM_REAR3_AF_CAL_MACRO_ADDR], 4);
+#endif
+#if  defined(FROM_REAR3_AF_CAL_D50_ADDR)
+		memcpy(&rear3_af_cal[5], &e_ctrl->cal_data.mapdata[FROM_REAR3_AF_CAL_D50_ADDR], 4);
+#endif
+#if  defined(FROM_REAR3_AF_CAL_PAN_ADDR)
+		memcpy(&rear3_af_cal[9], &e_ctrl->cal_data.mapdata[FROM_REAR3_AF_CAL_PAN_ADDR], 4);
+#endif
+
+		CAM_ERR(CAM_EEPROM, "rear3_af_cal[0] macro: %d, rear3_af_cal[5] macro: %d, rear3_af_cal[9] pan: %d", rear3_af_cal[0], rear3_af_cal[5], rear3_af_cal[9]);
 
 #endif
 #endif
@@ -842,21 +670,11 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 				rear3_dual_tilt_x, rear3_dual_tilt_y, rear3_dual_tilt_z, rear3_dual_tilt_sx,
 				rear3_dual_tilt_sy, rear3_dual_tilt_range, rear3_dual_tilt_max_err,
 				rear3_dual_tilt_avg_err, rear3_dual_tilt_dll_ver);
-#if defined(CONFIG_SEC_A72Q_PROJECT) || defined(CONFIG_SEC_M42Q_PROJECT)
-			buffer = vmalloc(MAX_EFS_DATA_LENGTH_DUALTILT);
-			if (!buffer) {
-				CAM_ERR(CAM_EEPROM, "vmalloc failed");
-				return -1;
-			}
-			efs_size = cam_dualtilt_read_tele_efs(REAR3_DUAL_CAL_EFS_PATH, buffer, MAX_EFS_DATA_LENGTH_DUALTILT);
-			memcpy(rear3_dual_cal,buffer,FROM_REAR3_DUAL_CAL_SIZE);
-			rear3_dual_cal[FROM_REAR3_DUAL_CAL_SIZE] = '\0';
-#else
+
 		/* rear3 dual cal */
 			memcpy(rear3_dual_cal, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_CAL_ADDR], FROM_REAR3_DUAL_CAL_SIZE);
 			rear3_dual_cal[FROM_REAR3_DUAL_CAL_SIZE] = '\0';
 			CAM_INFO(CAM_EEPROM, "rear3 dual cal = %s", rear3_dual_cal);
-#endif
 		/* rear dual cal */
 			memcpy(rear_dual_cal, &e_ctrl->cal_data.mapdata[FROM_REAR_DUAL_CAL_ADDR], FROM_REAR_DUAL_CAL_SIZE);
 			rear_dual_cal[FROM_REAR_DUAL_CAL_SIZE] = '\0';
@@ -911,322 +729,134 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 				rear2_tof_dual_tilt_avg_err, rear2_tof_dual_tilt_dll_ver);
 #endif
 #endif
-
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-			ConfAddr = OIS_CAL_START_ADDRESS;
-			ConfAddr += OIS_CAL_MARK_START_OFFSET;
-			memcpy(&ois_wide_cal_mark, &e_ctrl->cal_data.mapdata[ConfAddr], 1);
-			ConfAddr -= OIS_CAL_MARK_START_OFFSET;
-			if (ois_wide_cal_mark == 0xBB) {
-				ois_gain_rear_result = 0;
-				ois_sr_rear_result = 0;
-			} else {
-				ois_gain_rear_result = 1;
-				ois_sr_rear_result = 1;
-			}
-		
-			ConfAddr += OIS_XYGG_START_OFFSET;
-			memcpy(ois_wide_xygg, &e_ctrl->cal_data.mapdata[ConfAddr], OIS_XYGG_SIZE);
-			ConfAddr -= OIS_XYGG_START_OFFSET;
-		
-			ConfAddr += OIS_XYSR_START_OFFSET;
-			memcpy(ois_wide_xysr, &e_ctrl->cal_data.mapdata[ConfAddr], OIS_XYSR_SIZE);
-#endif
 		}
 
 #if defined(CONFIG_SAMSUNG_REAR_TRIPLE)
 		else if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_BOKEH) { //bokeh Sensor
-			if(is_cam_otp_enabled(e_ctrl)){ //BOKEH OTP
-				/* rear3 sensor id */
-				memcpy(rear3_sensor_id, &e_ctrl->cal_data.mapdata[FROM_REAR3_SENSOR_ID_ADDR], FROM_SENSOR_ID_SIZE);
-				/* rear3 module id */
-				memcpy(rear3_module_id, &e_ctrl->cal_data.mapdata[REAR3_MODULE_ID_ADDR], FROM_MODULE_ID_SIZE);
+			CAM_INFO(CAM_EEPROM,
+				"rear3 sensor id = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+				rear3_sensor_id[0], rear3_sensor_id[1], rear3_sensor_id[2], rear3_sensor_id[3],
+				rear3_sensor_id[4], rear3_sensor_id[5], rear3_sensor_id[6], rear3_sensor_id[7],
+			 	rear3_sensor_id[8], rear3_sensor_id[9], rear3_sensor_id[10], rear3_sensor_id[11],
+				rear3_sensor_id[12], rear3_sensor_id[13], rear3_sensor_id[14], rear3_sensor_id[15]);
 
-				rear3_sensor_id[FROM_SENSOR_ID_SIZE] = '\0';
-				rear3_module_id[FROM_MODULE_ID_SIZE] = '\0';
-
-				CAM_INFO(CAM_EEPROM,
-					"rear3 sensor id = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear3_sensor_id[0], rear3_sensor_id[1], rear3_sensor_id[2], rear3_sensor_id[3],
-					rear3_sensor_id[4], rear3_sensor_id[5], rear3_sensor_id[6], rear3_sensor_id[7],
-				 	rear3_sensor_id[8], rear3_sensor_id[9], rear3_sensor_id[10], rear3_sensor_id[11],
-					rear3_sensor_id[12], rear3_sensor_id[13], rear3_sensor_id[14], rear3_sensor_id[15]);
-
-				CAM_INFO(CAM_EEPROM, "rear3_module_id = %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
-					rear3_module_id[0], rear3_module_id[1], rear3_module_id[2], rear3_module_id[3], rear3_module_id[4],
-					rear3_module_id[5], rear3_module_id[6], rear3_module_id[7], rear3_module_id[8], rear3_module_id[9]);
-
-				/* rear3 manufacturer info */
-				memcpy(rear3_fw_ver, &e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION], FROM_MODULE_FW_INFO_SIZE);
-				rear3_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
-
-				CAM_DBG(CAM_EEPROM,
-					"rear manufacturer info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear3_fw_ver[0], rear3_fw_ver[1], rear3_fw_ver[2], rear3_fw_ver[3], rear3_fw_ver[4],
-					rear3_fw_ver[5], rear3_fw_ver[6], rear3_fw_ver[7], rear3_fw_ver[8], rear3_fw_ver[9],
-					rear3_fw_ver[10]);
-				/* temp phone version */
-				snprintf(rear3_phone_fw_ver, FROM_MODULE_FW_INFO_SIZE+1, "%s%s%s%s", hw_phone_info_bokeh, sw_phone_info_bokeh, vendor_phone_info_bokeh, process_phone_info_bokeh);
-				rear3_phone_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
-				CAM_INFO(CAM_EEPROM,
-					"rear rear3_phone_fw_ver info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear3_phone_fw_ver[0], rear3_phone_fw_ver[1], rear3_phone_fw_ver[2], rear3_phone_fw_ver[3], rear3_phone_fw_ver[4],
-					rear3_phone_fw_ver[5], rear3_phone_fw_ver[6], rear3_phone_fw_ver[7], rear3_phone_fw_ver[8], rear3_phone_fw_ver[9],
-					rear3_phone_fw_ver[10]);
+		/* rear3 manufacturer info */
+			//memcpy(rear3_fw_ver, &e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION], FROM_MODULE_FW_INFO_SIZE);
+			//rear3_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
+#if defined(CONFIG_SAMSUNG_CAMERA_OTP)
+			memcpy(rear3_fw_ver, &e_ctrl->cal_data.mapdata[SENSOR_OTP_SENSOR_MODULE_FW_OFFSET], FROM_MODULE_FW_INFO_SIZE);
+			rear3_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
+#endif
+			CAM_DBG(CAM_EEPROM,
+				"rear manufacturer info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+				rear3_fw_ver[0], rear3_fw_ver[1], rear3_fw_ver[2], rear3_fw_ver[3], rear3_fw_ver[4],
+				rear3_fw_ver[5], rear3_fw_ver[6], rear3_fw_ver[7], rear3_fw_ver[8], rear3_fw_ver[9],
+				rear3_fw_ver[10]);
+		/* temp phone version */
+			snprintf(rear3_phone_fw_ver, FROM_MODULE_FW_INFO_SIZE+1, "%s%s%s%s", hw_phone_info_bokeh, sw_phone_info_bokeh, vendor_phone_info_bokeh, process_phone_info_bokeh);
+			rear3_phone_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
+			CAM_INFO(CAM_EEPROM,
+				"rear rear3_phone_fw_ver info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+				rear3_phone_fw_ver[0], rear3_phone_fw_ver[1], rear3_phone_fw_ver[2], rear3_phone_fw_ver[3], rear3_phone_fw_ver[4],
+				rear3_phone_fw_ver[5], rear3_phone_fw_ver[6], rear3_phone_fw_ver[7], rear3_phone_fw_ver[8], rear3_phone_fw_ver[9],
+				rear3_phone_fw_ver[10]);
 
 #ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear rear3_phone_fw_ver info = %c %c %c %c %c %c %c %c %c %c %c",
-					rear3_phone_fw_ver[0], rear3_phone_fw_ver[1], rear3_phone_fw_ver[2], rear3_phone_fw_ver[3], rear3_phone_fw_ver[4],
-					rear3_phone_fw_ver[5], rear3_phone_fw_ver[6], rear3_phone_fw_ver[7], rear3_phone_fw_ver[8], rear3_phone_fw_ver[9],
-					rear3_phone_fw_ver[10]);
+			CAM_INFO(CAM_EEPROM, "rear rear3_phone_fw_ver info = %c %c %c %c %c %c %c %c %c %c %c",
+				rear3_phone_fw_ver[0], rear3_phone_fw_ver[1], rear3_phone_fw_ver[2], rear3_phone_fw_ver[3], rear3_phone_fw_ver[4],
+				rear3_phone_fw_ver[5], rear3_phone_fw_ver[6], rear3_phone_fw_ver[7], rear3_phone_fw_ver[8], rear3_phone_fw_ver[9],
+				rear3_phone_fw_ver[10]);
 #endif
-				/* temp load version */
-				if (strncmp(rear3_phone_fw_ver, rear3_fw_ver, HW_INFO_MAX_SIZE-1) == 0
-					&& strncmp(&rear3_phone_fw_ver[HW_INFO_MAX_SIZE-1], &rear3_fw_ver[HW_INFO_MAX_SIZE-1], SW_INFO_MAX_SIZE-1) >= 0) {
-					CAM_INFO(CAM_EEPROM, "Load from phone");
-					strcpy(rear3_load_fw_ver, rear3_phone_fw_ver);
-					loadfrom = 'P';
+		/* temp load version */
+			if (strncmp(rear3_phone_fw_ver, rear3_fw_ver, HW_INFO_MAX_SIZE-1) == 0
+				&& strncmp(&rear3_phone_fw_ver[HW_INFO_MAX_SIZE-1], &rear3_fw_ver[HW_INFO_MAX_SIZE-1], SW_INFO_MAX_SIZE-1) >= 0) {
+				CAM_INFO(CAM_EEPROM, "Load from phone");
+				strcpy(rear3_load_fw_ver, rear3_phone_fw_ver);
+				loadfrom = 'P';
+			} else {
+				CAM_INFO(CAM_EEPROM, "Load from EEPROM");
+				strcpy(rear3_load_fw_ver, rear3_fw_ver);
+				loadfrom = 'E';
+			}
+
+			bVerNull = FALSE;
+			for(i = 0; i < FROM_MODULE_FW_INFO_SIZE; i ++) {
+#if 0
+				if(e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION + i] >= 0x80
+					|| !isalnum(e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION + i])) {
+					cal_ver[i] = ' ';
+					bVerNull = TRUE;
 				} else {
-					CAM_INFO(CAM_EEPROM, "Load from EEPROM");
-					strcpy(rear3_load_fw_ver, rear3_fw_ver);
-					loadfrom = 'E';
+					//cal_ver[i] = e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION + i];
+					cal_ver[i] = rear3_fw_ver[i];
 				}
-
-				bVerNull = FALSE;
-				for(i = 0; i < FROM_MODULE_FW_INFO_SIZE; i ++) {
-#if 0
-					if(e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION + i] >= 0x80
-						|| !isalnum(e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION + i])) {
-						cal_ver[i] = ' ';
-						bVerNull = TRUE;
-					} else {
-						//cal_ver[i] = e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION + i];
-						cal_ver[i] = rear3_fw_ver[i];
-					}
 #else
-						cal_ver[i] = rear3_fw_ver[i];
+					cal_ver[i] = rear3_fw_ver[i];
 
 #endif
-					if(rear3_phone_fw_ver[i] >= 0x80
-						|| !isalnum(rear3_phone_fw_ver[i]))
-						rear3_phone_fw_ver[i] = ' ';
-				}
-				sensor_ver[1] = rear3_sensor_id[8];
-				dll_ver[1] = 0;//e_ctrl->cal_data.mapdata[REAR3_DLL_VERSION_ADDR] - '0';
-				normal_cri_rev = CRITERION_REV_BOKEH;
-				strcpy(ideal_ver, rear3_phone_fw_ver);
-				if(rear3_fw_ver[9] < 0x80 && isalnum(rear3_fw_ver[9])) {
-					ideal_ver[9] = rear3_fw_ver[9];
-				}
-				if(rear3_fw_ver[10] < 0x80 && isalnum(rear3_fw_ver[10])) {
-			    		ideal_ver[10] = rear3_fw_ver[10];
-				}
+				if(rear3_phone_fw_ver[i] >= 0x80
+					|| !isalnum(rear3_phone_fw_ver[i]))
+					rear3_phone_fw_ver[i] = ' ';
+			}
+			sensor_ver[1] = rear3_sensor_id[8];
+			dll_ver[1] = 0;//e_ctrl->cal_data.mapdata[REAR3_DLL_VERSION_ADDR] - '0';
+			normal_cri_rev = CRITERION_REV_BOKEH;
+			strcpy(ideal_ver, rear3_phone_fw_ver);
+			if(rear3_fw_ver[9] < 0x80 && isalnum(rear3_fw_ver[9])) {
+				ideal_ver[9] = rear3_fw_ver[9];
+			}
+			if(rear3_fw_ver[10] < 0x80 && isalnum(rear3_fw_ver[10])) {
+		    		ideal_ver[10] = rear3_fw_ver[10];
+			}
 
-				if(board_rev < normal_cri_rev && bVerNull == TRUE)
-				{
-					strcpy(cal_ver, ideal_ver);
-					loadfrom = 'P';
-					CAM_INFO(CAM_EEPROM, "set tmp ver: %s", cal_ver);
-				}
+			if(board_rev < normal_cri_rev && bVerNull == TRUE)
+			{
+				strcpy(cal_ver, ideal_ver);
+				loadfrom = 'P';
+				CAM_INFO(CAM_EEPROM, "set tmp ver: %s", cal_ver);
+			}
 
-				/* update EEPROM fw version on sysfs */
-				sprintf(cam3_fw_ver, "%s %s\n", rear3_fw_ver, rear3_load_fw_ver); //need check phone version
-				sprintf(cam3_fw_full_ver, "%s %s %s\n", rear3_fw_ver, rear3_phone_fw_ver, rear3_load_fw_ver);// needed check phone version.
+		/* update EEPROM fw version on sysfs */
+			sprintf(cam3_fw_ver, "%s %s\n", rear3_fw_ver, rear3_load_fw_ver); //need check phone version
+			sprintf(cam3_fw_full_ver, "%s %s %s\n", rear3_fw_ver, rear3_phone_fw_ver, rear3_load_fw_ver);// needed check phone version.
 
 #ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear3 manufacturer info = %c %c %c %c %c %c %c %c %c %c %c",
-					rear3_fw_ver[0], rear3_fw_ver[1], rear3_fw_ver[2], rear3_fw_ver[3], rear3_fw_ver[4],
-					rear3_fw_ver[5], rear3_fw_ver[6], rear3_fw_ver[7], rear3_fw_ver[8], rear3_fw_ver[9],
-					rear3_fw_ver[10]);
+			CAM_INFO(CAM_EEPROM, "rear3 manufacturer info = %c %c %c %c %c %c %c %c %c %c %c",
+				rear3_fw_ver[0], rear3_fw_ver[1], rear3_fw_ver[2], rear3_fw_ver[3], rear3_fw_ver[4],
+				rear3_fw_ver[5], rear3_fw_ver[6], rear3_fw_ver[7], rear3_fw_ver[8], rear3_fw_ver[9],
+				rear3_fw_ver[10]);
 #endif
 #if 0
 
-				/* rear3 mtf exif */
-				memcpy(rear3_mtf_exif, &e_ctrl->cal_data.mapdata[FROM_REAR3_MTF_ADDR], FROM_MTF_SIZE);
-				rear3_mtf_exif[FROM_MTF_SIZE] = '\0';
-				CAM_DBG(CAM_EEPROM, "rear3 mtf exif = %s", rear3_mtf_exif);
+		/* rear3 mtf exif */
+			memcpy(rear3_mtf_exif, &e_ctrl->cal_data.mapdata[FROM_REAR3_MTF_ADDR], FROM_MTF_SIZE);
+			rear3_mtf_exif[FROM_MTF_SIZE] = '\0';
+			CAM_DBG(CAM_EEPROM, "rear3 mtf exif = %s", rear3_mtf_exif);
 
 #ifndef REAR3_CAL_INFO_LOAD_FIX
-				/* rear3 tilt */
-				memcpy(&rear3_dual_tilt_x, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_X], 4);
-				memcpy(&rear3_dual_tilt_y, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_Y], 4);
-				memcpy(&rear3_dual_tilt_z, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_Z], 4);
-				memcpy(&rear3_dual_tilt_sx, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_SX], 4);
-				memcpy(&rear3_dual_tilt_sy, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_SY], 4);
-				memcpy(&rear3_dual_tilt_range, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_RANGE], 4);
-				memcpy(&rear3_dual_tilt_max_err, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_MAX_ERR], 4);
-				memcpy(&rear3_dual_tilt_avg_err, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_AVG_ERR], 4);
-				memcpy(&rear3_dual_tilt_dll_ver, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_DLL_VERSION], 4);
-				CAM_DBG(CAM_EEPROM,
-					"rear3 dual tilt x = %d, y = %d, z = %d, sx = %d, sy = %d, range = %d, max_err = %d, avg_err = %d, dll_ver = %d",
-					rear3_dual_tilt_x, rear3_dual_tilt_y, rear3_dual_tilt_z, rear3_dual_tilt_sx,
-					rear3_dual_tilt_sy, rear3_dual_tilt_range, rear3_dual_tilt_max_err,
-					rear3_dual_tilt_avg_err, rear3_dual_tilt_dll_ver);
+		/* rear3 tilt */
+			memcpy(&rear3_dual_tilt_x, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_X], 4);
+			memcpy(&rear3_dual_tilt_y, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_Y], 4);
+			memcpy(&rear3_dual_tilt_z, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_Z], 4);
+			memcpy(&rear3_dual_tilt_sx, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_SX], 4);
+			memcpy(&rear3_dual_tilt_sy, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_SY], 4);
+			memcpy(&rear3_dual_tilt_range, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_RANGE], 4);
+			memcpy(&rear3_dual_tilt_max_err, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_MAX_ERR], 4);
+			memcpy(&rear3_dual_tilt_avg_err, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_AVG_ERR], 4);
+			memcpy(&rear3_dual_tilt_dll_ver, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_TILT_DLL_VERSION], 4);
+			CAM_DBG(CAM_EEPROM,
+				"rear3 dual tilt x = %d, y = %d, z = %d, sx = %d, sy = %d, range = %d, max_err = %d, avg_err = %d, dll_ver = %d",
+				rear3_dual_tilt_x, rear3_dual_tilt_y, rear3_dual_tilt_z, rear3_dual_tilt_sx,
+				rear3_dual_tilt_sy, rear3_dual_tilt_range, rear3_dual_tilt_max_err,
+				rear3_dual_tilt_avg_err, rear3_dual_tilt_dll_ver);
 
-				/* rear3 dual cal */
-				memcpy(rear3_dual_cal, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_CAL_ADDR], FROM_REAR3_DUAL_CAL_SIZE);
-				rear3_dual_cal[FROM_REAR3_DUAL_CAL_SIZE] = '\0';
-				CAM_DBG(CAM_EEPROM, "rear3 dual cal = %s", rear3_dual_cal);
-				CAM_INFO(CAM_EEPROM, "rear3 dual cal = %s", rear3_dual_cal);
+		/* rear3 dual cal */
+			memcpy(rear3_dual_cal, &e_ctrl->cal_data.mapdata[FROM_REAR3_DUAL_CAL_ADDR], FROM_REAR3_DUAL_CAL_SIZE);
+			rear3_dual_cal[FROM_REAR3_DUAL_CAL_SIZE] = '\0';
+			CAM_DBG(CAM_EEPROM, "rear3 dual cal = %s", rear3_dual_cal);
+			CAM_INFO(CAM_EEPROM, "rear3 dual cal = %s", rear3_dual_cal);
 #endif
 #endif
-			}
-			else{ // TELE EEPROM
-				/* rear3 sensor id */
-				memcpy(rear3_sensor_id, &e_ctrl->cal_data.mapdata[FROM_REAR3_SENSOR_ID_ADDR], FROM_SENSOR_ID_SIZE);
-				/* rear3 module id */
-				memcpy(rear3_module_id, &e_ctrl->cal_data.mapdata[REAR3_MODULE_ID_ADDR], FROM_MODULE_ID_SIZE);
-
-				rear3_sensor_id[FROM_SENSOR_ID_SIZE] = '\0';
-				rear3_module_id[FROM_MODULE_ID_SIZE] = '\0';
-
-				CAM_INFO(CAM_EEPROM,
-					"rear3 sensor id = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear3_sensor_id[0], rear3_sensor_id[1], rear3_sensor_id[2], rear3_sensor_id[3],
-					rear3_sensor_id[4], rear3_sensor_id[5], rear3_sensor_id[6], rear3_sensor_id[7],
-				 	rear3_sensor_id[8], rear3_sensor_id[9], rear3_sensor_id[10], rear3_sensor_id[11],
-					rear3_sensor_id[12], rear3_sensor_id[13], rear3_sensor_id[14], rear3_sensor_id[15]);
-
-				CAM_INFO(CAM_EEPROM, "rear3_module_id = %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
-					rear3_module_id[0], rear3_module_id[1], rear3_module_id[2], rear3_module_id[3], rear3_module_id[4],
-					rear3_module_id[5], rear3_module_id[6], rear3_module_id[7], rear3_module_id[8], rear3_module_id[9]);
-
-				/* rear3 manufacturer info */
-				memcpy(rear3_fw_ver, &e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION], FROM_MODULE_FW_INFO_SIZE);
-				rear3_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
-				
-				CAM_DBG(CAM_EEPROM,
-					"rear3 manufacturer info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear3_fw_ver[0], rear3_fw_ver[1], rear3_fw_ver[2], rear3_fw_ver[3], rear3_fw_ver[4],
-					rear3_fw_ver[5], rear3_fw_ver[6], rear3_fw_ver[7], rear3_fw_ver[8], rear3_fw_ver[9],
-					rear3_fw_ver[10]);
-				/* temp phone version */
-				snprintf(rear3_phone_fw_ver, FROM_MODULE_FW_INFO_SIZE+1, "%s%s%s%s", hw_phone_info_bokeh, sw_phone_info_bokeh, vendor_phone_info_bokeh, process_phone_info_bokeh);
-				rear3_phone_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
-				CAM_INFO(CAM_EEPROM,
-					"rear rear3_phone_fw_ver info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear3_phone_fw_ver[0], rear3_phone_fw_ver[1], rear3_phone_fw_ver[2], rear3_phone_fw_ver[3], rear3_phone_fw_ver[4],
-					rear3_phone_fw_ver[5], rear3_phone_fw_ver[6], rear3_phone_fw_ver[7], rear3_phone_fw_ver[8], rear3_phone_fw_ver[9],
-					rear3_phone_fw_ver[10]);
-				/*rear3 af cal*/
-#if  defined(FROM_REAR3_AF_CAL_MACRO_ADDR)
-				memcpy(&rear3_af_cal[0], &e_ctrl->cal_data.mapdata[FROM_REAR3_AF_CAL_MACRO_ADDR], 4);
-#endif
-#if  defined(FROM_REAR3_AF_CAL_D50_ADDR)
-				memcpy(&rear3_af_cal[5], &e_ctrl->cal_data.mapdata[FROM_REAR3_AF_CAL_D50_ADDR], 4);
-#endif
-#if  defined(FROM_REAR3_AF_CAL_PAN_ADDR)
-				memcpy(&rear3_af_cal[9], &e_ctrl->cal_data.mapdata[FROM_REAR3_AF_CAL_PAN_ADDR], 4);
-#endif
-
-				CAM_ERR(CAM_EEPROM, "rear3_af_cal[0] macro: %d, rear3_af_cal[5] macro: %d, rear3_af_cal[9] pan: %d", rear3_af_cal[0], rear3_af_cal[5], rear3_af_cal[9]);
-
-
-#ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear rear3_phone_fw_ver info = %c %c %c %c %c %c %c %c %c %c %c",
-					rear3_phone_fw_ver[0], rear3_phone_fw_ver[1], rear3_phone_fw_ver[2], rear3_phone_fw_ver[3], rear3_phone_fw_ver[4],
-					rear3_phone_fw_ver[5], rear3_phone_fw_ver[6], rear3_phone_fw_ver[7], rear3_phone_fw_ver[8], rear3_phone_fw_ver[9],
-					rear3_phone_fw_ver[10]);
-#endif
-				/* temp load version */
-				if (strncmp(rear3_phone_fw_ver, rear3_fw_ver, HW_INFO_MAX_SIZE-1) == 0
-					&& strncmp(&rear3_phone_fw_ver[HW_INFO_MAX_SIZE-1], &rear3_fw_ver[HW_INFO_MAX_SIZE-1], SW_INFO_MAX_SIZE-1) >= 0) {
-					CAM_INFO(CAM_EEPROM, "Load from phone");
-					strcpy(rear3_load_fw_ver, rear3_phone_fw_ver);
-					loadfrom = 'P';
-				} else {
-					CAM_INFO(CAM_EEPROM, "Load from EEPROM");
-					strcpy(rear3_load_fw_ver, rear3_fw_ver);
-					loadfrom = 'E';
-				}
-
-				bVerNull = FALSE;
-				for(i = 0; i < FROM_MODULE_FW_INFO_SIZE; i ++) {
-					if(e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION + i] >= 0x80
-						|| !isalnum(e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION + i])) {
-						cal_ver[i] = ' ';
-						bVerNull = TRUE;
-					} else {
-						cal_ver[i] = e_ctrl->cal_data.mapdata[REAR3_MODULE_FW_VERSION + i];
-					}
-					
-					if(rear3_phone_fw_ver[i] >= 0x80
-						|| !isalnum(rear3_phone_fw_ver[i]))
-						rear3_phone_fw_ver[i] = ' ';
-				}
-				
-				sensor_ver[1] = rear3_sensor_id[8];
-				dll_ver[1] = e_ctrl->cal_data.mapdata[REAR3_DLL_VERSION_ADDR] - '0';
-				normal_cri_rev = CRITERION_REV_BOKEH;
-				strcpy(ideal_ver, rear3_phone_fw_ver);
-				if(rear3_fw_ver[9] < 0x80 && isalnum(rear3_fw_ver[9])) {
-					ideal_ver[9] = rear3_fw_ver[9];
-				}
-				if(rear3_fw_ver[10] < 0x80 && isalnum(rear3_fw_ver[10])) {
-			    		ideal_ver[10] = rear3_fw_ver[10];
-				}
-
-				if(board_rev < normal_cri_rev && bVerNull == TRUE)
-				{
-					strcpy(cal_ver, ideal_ver);
-					loadfrom = 'P';
-					CAM_INFO(CAM_EEPROM, "set tmp ver: %s", cal_ver);
-				}
-
-				/* update EEPROM fw version on sysfs */
-				sprintf(cam3_fw_ver, "%s %s\n", rear3_fw_ver, rear3_load_fw_ver); //need check phone version
-				sprintf(cam3_fw_full_ver, "%s %s %s\n", rear3_fw_ver, rear3_phone_fw_ver, rear3_load_fw_ver);// needed check phone version.
-
-#ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear3 manufacturer info = %c %c %c %c %c %c %c %c %c %c %c",
-					rear3_fw_ver[0], rear3_fw_ver[1], rear3_fw_ver[2], rear3_fw_ver[3], rear3_fw_ver[4],
-					rear3_fw_ver[5], rear3_fw_ver[6], rear3_fw_ver[7], rear3_fw_ver[8], rear3_fw_ver[9],
-					rear3_fw_ver[10]);
-#endif
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-				ConfAddr = OIS_CAL_START_ADDRESS;
-				ConfAddr += OIS_CAL_MARK_START_OFFSET;
-				memcpy(&ois_tele_cal_mark, &e_ctrl->cal_data.mapdata[ConfAddr], 1);
-				ConfAddr -= OIS_CAL_MARK_START_OFFSET;
-				if (ois_tele_cal_mark == 0xBB) {
-					ois_gain_rear3_result = 0;
-					ois_sr_rear3_result = 0;
-				} else {
-					ois_gain_rear3_result = 1;
-					ois_sr_rear3_result = 1;
-				}
-					
-				ConfAddr += OIS_XYGG_START_OFFSET;
-				memcpy(ois_tele_xygg, &e_ctrl->cal_data.mapdata[ConfAddr], OIS_XYGG_SIZE);
-				ConfAddr -= OIS_XYGG_START_OFFSET;
-					
-				ConfAddr += OIS_XYSR_START_OFFSET;
-				memcpy(ois_tele_xysr, &e_ctrl->cal_data.mapdata[ConfAddr], OIS_XYSR_SIZE);
-				ConfAddr -= OIS_XYSR_START_OFFSET;
-					
-				ConfAddr += TELE_OIS_CROSSTALK_START_OFFSET;
-				memcpy(ois_tele_cross_talk, &e_ctrl->cal_data.mapdata[ConfAddr], OIS_CROSSTALK_SIZE);
-				ConfAddr -= TELE_OIS_CROSSTALK_START_OFFSET;
-				ois_tele_cross_talk_result = 0;
-				for (j = 0; j < OIS_CROSSTALK_SIZE; j++) {
-					if (ois_tele_cross_talk[j] != 0xFF) {
-						isCal = 1;
-						break;
-					}
-				}
-				ois_tele_cross_talk_result = (isCal == 0) ?  1 : 0;
-			
-			
-					
-				ConfAddr += WIDE_OIS_CENTER_SHIFT_START_OFFSET;
-				memcpy(ois_wide_center_shift, &e_ctrl->cal_data.mapdata[ConfAddr], OIS_CENTER_SHIFT_SIZE);
-				ConfAddr -= WIDE_OIS_CENTER_SHIFT_START_OFFSET;
-					
-				ConfAddr += TELE_OIS_CENTER_SHIFT_START_OFFSET;
-				memcpy(ois_tele_center_shift,  &e_ctrl->cal_data.mapdata[ConfAddr], OIS_CENTER_SHIFT_SIZE);
-				ConfAddr -= TELE_OIS_CENTER_SHIFT_START_OFFSET;
-#endif
-			}
 		}
 #if defined(CONFIG_SEC_R5Q_PROJECT)
 		else if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_BACK_MACRO) {
@@ -1325,212 +955,112 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 
 #if defined(CONFIG_SAMSUNG_REAR_TRIPLE)
 		else if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_ULTRA_WIDE) { // ultra wide Sensor
-			if(!is_cam_otp_enabled(e_ctrl)){ //UW EEPROM
-				/* rear2 sensor id */
-				memcpy(rear2_sensor_id, &e_ctrl->cal_data.mapdata[FROM_REAR2_SENSOR_ID_ADDR], FROM_SENSOR_ID_SIZE);
-				/* rear2 module id */
-				memcpy(rear2_module_id, &e_ctrl->cal_data.mapdata[REAR2_MODULE_ID_ADDR], FROM_MODULE_ID_SIZE);
+			/* rear2 sensor id */
+			memcpy(rear2_sensor_id, &e_ctrl->cal_data.mapdata[FROM_REAR2_SENSOR_ID_ADDR], FROM_SENSOR_ID_SIZE);
+			/* rear2 module id */
+			memcpy(rear2_module_id, &e_ctrl->cal_data.mapdata[REAR2_MODULE_ID_ADDR], FROM_MODULE_ID_SIZE);
 
-				rear2_sensor_id[FROM_SENSOR_ID_SIZE] = '\0';
-				rear2_module_id[FROM_MODULE_ID_SIZE] = '\0';
+			rear2_sensor_id[FROM_SENSOR_ID_SIZE] = '\0';
+			rear2_module_id[FROM_MODULE_ID_SIZE] = '\0';
 
-				CAM_INFO(CAM_EEPROM,
-					"rear2 sensor id = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear2_sensor_id[0], rear2_sensor_id[1], rear2_sensor_id[2], rear2_sensor_id[3],
-					rear2_sensor_id[4], rear2_sensor_id[5], rear2_sensor_id[6], rear2_sensor_id[7],
-				 	rear2_sensor_id[8], rear2_sensor_id[9], rear2_sensor_id[10], rear2_sensor_id[11],
-					rear2_sensor_id[12], rear2_sensor_id[13], rear2_sensor_id[14], rear2_sensor_id[15]);
+			CAM_INFO(CAM_EEPROM,
+				"rear2 sensor id = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+				rear2_sensor_id[0], rear2_sensor_id[1], rear2_sensor_id[2], rear2_sensor_id[3],
+				rear2_sensor_id[4], rear2_sensor_id[5], rear2_sensor_id[6], rear2_sensor_id[7],
+			 	rear2_sensor_id[8], rear2_sensor_id[9], rear2_sensor_id[10], rear2_sensor_id[11],
+				rear2_sensor_id[12], rear2_sensor_id[13], rear2_sensor_id[14], rear2_sensor_id[15]);
 
-				CAM_INFO(CAM_EEPROM, "rear2_module_id = %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
-					rear2_module_id[0], rear2_module_id[1], rear2_module_id[2], rear2_module_id[3], rear2_module_id[4],
-					rear2_module_id[5], rear2_module_id[6], rear2_module_id[7], rear2_module_id[8], rear2_module_id[9]);
+			CAM_INFO(CAM_EEPROM, "rear2_module_id = %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+				rear2_module_id[0], rear2_module_id[1], rear2_module_id[2], rear2_module_id[3], rear2_module_id[4],
+				rear2_module_id[5], rear2_module_id[6], rear2_module_id[7], rear2_module_id[8], rear2_module_id[9]);
 #ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear2_module_id = %c %c %c %c %c %02X %02X %02X %02X %02X",
-					rear2_module_id[0], rear2_module_id[1], rear2_module_id[2], rear2_module_id[3], rear2_module_id[4],
-					rear2_module_id[5], rear2_module_id[6], rear2_module_id[7], rear2_module_id[8], rear2_module_id[9]);
+			CAM_INFO(CAM_EEPROM, "rear2_module_id = %c %c %c %c %c %02X %02X %02X %02X %02X",
+				rear2_module_id[0], rear2_module_id[1], rear2_module_id[2], rear2_module_id[3], rear2_module_id[4],
+				rear2_module_id[5], rear2_module_id[6], rear2_module_id[7], rear2_module_id[8], rear2_module_id[9]);
 #endif
 
-				/* rear2 manufacturer info */
-				memcpy(rear2_fw_ver, &e_ctrl->cal_data.mapdata[REAR2_MODULE_FW_VERSION], FROM_MODULE_FW_INFO_SIZE);
+		/* rear2 manufacturer info */
+			memcpy(rear2_fw_ver, &e_ctrl->cal_data.mapdata[REAR2_MODULE_FW_VERSION], FROM_MODULE_FW_INFO_SIZE);
 #if defined(CONFIG_SEC_A90Q_PROJECT)
-				if(board_rev >= 3 && board_rev < 6)
-					memcpy(rear2_fw_ver, &e_ctrl->cal_data.mapdata[0x3230], FROM_MODULE_FW_INFO_SIZE);
+			if(board_rev >= 3 && board_rev < 6)
+				memcpy(rear2_fw_ver, &e_ctrl->cal_data.mapdata[0x3230], FROM_MODULE_FW_INFO_SIZE);
 #endif
 
-				rear2_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
-				CAM_INFO(CAM_EEPROM,
-					"rear2 manufacturer info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear2_fw_ver[0], rear2_fw_ver[1], rear2_fw_ver[2], rear2_fw_ver[3], rear2_fw_ver[4],
-					rear2_fw_ver[5], rear2_fw_ver[6], rear2_fw_ver[7], rear2_fw_ver[8], rear2_fw_ver[9],
-					rear2_fw_ver[10]);
-				/* temp phone version */
-				snprintf(rear2_phone_fw_ver, FROM_MODULE_FW_INFO_SIZE+1, "%s%s%s%s", hw_phone_info_ultra_wide, sw_phone_info_ultra_wide, vendor_phone_info_ultra_wide, process_phone_info_ultra_wide);
-				rear2_phone_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
-				CAM_INFO(CAM_EEPROM,
-					"rear rear2_phone_fw_ver info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear2_phone_fw_ver[0], rear2_phone_fw_ver[1], rear2_phone_fw_ver[2], rear2_phone_fw_ver[3], rear2_phone_fw_ver[4],
-					rear2_phone_fw_ver[5], rear2_phone_fw_ver[6], rear2_phone_fw_ver[7], rear2_phone_fw_ver[8], rear2_phone_fw_ver[9],
-					rear2_phone_fw_ver[10]);
+			rear2_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
+			CAM_INFO(CAM_EEPROM,
+				"rear2 manufacturer info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+				rear2_fw_ver[0], rear2_fw_ver[1], rear2_fw_ver[2], rear2_fw_ver[3], rear2_fw_ver[4],
+				rear2_fw_ver[5], rear2_fw_ver[6], rear2_fw_ver[7], rear2_fw_ver[8], rear2_fw_ver[9],
+				rear2_fw_ver[10]);
+		/* temp phone version */
+			snprintf(rear2_phone_fw_ver, FROM_MODULE_FW_INFO_SIZE+1, "%s%s%s%s", hw_phone_info_ultra_wide, sw_phone_info_ultra_wide, vendor_phone_info_ultra_wide, process_phone_info_ultra_wide);
+			rear2_phone_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
+			CAM_INFO(CAM_EEPROM,
+				"rear rear2_phone_fw_ver info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+				rear2_phone_fw_ver[0], rear2_phone_fw_ver[1], rear2_phone_fw_ver[2], rear2_phone_fw_ver[3], rear2_phone_fw_ver[4],
+				rear2_phone_fw_ver[5], rear2_phone_fw_ver[6], rear2_phone_fw_ver[7], rear2_phone_fw_ver[8], rear2_phone_fw_ver[9],
+				rear2_phone_fw_ver[10]);
 
 #ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear rear2_phone_fw_ver info = %c %c %c %c %c %c %c %c %c %c %c",
-					rear2_phone_fw_ver[0], rear2_phone_fw_ver[1], rear2_phone_fw_ver[2], rear2_phone_fw_ver[3], rear2_phone_fw_ver[4],
-					rear2_phone_fw_ver[5], rear2_phone_fw_ver[6], rear2_phone_fw_ver[7], rear2_phone_fw_ver[8], rear2_phone_fw_ver[9],
-					rear2_phone_fw_ver[10]);
+			CAM_INFO(CAM_EEPROM, "rear rear2_phone_fw_ver info = %c %c %c %c %c %c %c %c %c %c %c",
+				rear2_phone_fw_ver[0], rear2_phone_fw_ver[1], rear2_phone_fw_ver[2], rear2_phone_fw_ver[3], rear2_phone_fw_ver[4],
+				rear2_phone_fw_ver[5], rear2_phone_fw_ver[6], rear2_phone_fw_ver[7], rear2_phone_fw_ver[8], rear2_phone_fw_ver[9],
+				rear2_phone_fw_ver[10]);
 #endif
-				/* temp load version */
-				if (strncmp(rear2_phone_fw_ver, rear2_fw_ver, HW_INFO_MAX_SIZE-1) == 0
-					&& strncmp(&rear2_phone_fw_ver[HW_INFO_MAX_SIZE-1], &rear2_fw_ver[HW_INFO_MAX_SIZE-1], SW_INFO_MAX_SIZE-1) >= 0) {
-					CAM_INFO(CAM_EEPROM, "Load from phone");
-					strcpy(rear2_load_fw_ver, rear2_phone_fw_ver);
-					loadfrom = 'P';
-				} else {
-					CAM_INFO(CAM_EEPROM, "Load from EEPROM");
-					strcpy(rear2_load_fw_ver, rear2_fw_ver);
-					loadfrom = 'E';
-				}
-
-				bVerNull = FALSE;
-				for(i = 0; i < FROM_MODULE_FW_INFO_SIZE; i ++) {
-					if(e_ctrl->cal_data.mapdata[REAR2_MODULE_FW_VERSION + i] >= 0x80
-						|| !isalnum(e_ctrl->cal_data.mapdata[REAR2_MODULE_FW_VERSION + i])) {
-						cal_ver[i] = ' ';
-						bVerNull = TRUE;
-					} else {
-						cal_ver[i] = e_ctrl->cal_data.mapdata[REAR2_MODULE_FW_VERSION + i];
-					}
-
-					if(rear2_phone_fw_ver[i] >= 0x80
-						|| !isalnum(rear2_phone_fw_ver[i]))
-						rear2_phone_fw_ver[i] = ' ';
-				}
-				sensor_ver[1] = rear2_sensor_id[8];
-				dll_ver[1] = e_ctrl->cal_data.mapdata[REAR2_DLL_VERSION_ADDR] - '0';
-				normal_cri_rev = CRITERION_REV_ULTRA_WIDE;
-				strcpy(ideal_ver, rear2_phone_fw_ver);
-				if(rear2_fw_ver[9] < 0x80 && isalnum(rear2_fw_ver[9])) {
-					ideal_ver[9] = rear2_fw_ver[9];
-				}
-				if(rear2_fw_ver[10] < 0x80 && isalnum(rear2_fw_ver[10])) {
-			    		ideal_ver[10] = rear2_fw_ver[10];
-				}
-
-				if(board_rev < normal_cri_rev && bVerNull == TRUE)
-				{
-					strcpy(cal_ver, ideal_ver);
-					loadfrom = 'P';
-					CAM_INFO(CAM_EEPROM, "set tmp ver: %s", cal_ver);
-				}
-
-				/* update EEPROM fw version on sysfs */
-				sprintf(cam2_fw_ver, "%s %s\n", rear2_fw_ver, rear2_load_fw_ver); //need check phone version
-				sprintf(cam2_fw_full_ver, "%s %s %s\n", rear2_fw_ver, rear2_phone_fw_ver, rear2_load_fw_ver);// needed check phone version.
-
-#ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear2 manufacturer info = %c %c %c %c %c %c %c %c %c %c %c",
-					rear2_fw_ver[0], rear2_fw_ver[1], rear2_fw_ver[2], rear2_fw_ver[3], rear2_fw_ver[4],
-					rear2_fw_ver[5], rear2_fw_ver[6], rear2_fw_ver[7], rear2_fw_ver[8], rear2_fw_ver[9],
-					rear2_fw_ver[10]);
-#endif
+		/* temp load version */
+			if (strncmp(rear2_phone_fw_ver, rear2_fw_ver, HW_INFO_MAX_SIZE-1) == 0
+				&& strncmp(&rear2_phone_fw_ver[HW_INFO_MAX_SIZE-1], &rear2_fw_ver[HW_INFO_MAX_SIZE-1], SW_INFO_MAX_SIZE-1) >= 0) {
+				CAM_INFO(CAM_EEPROM, "Load from phone");
+				strcpy(rear2_load_fw_ver, rear2_phone_fw_ver);
+				loadfrom = 'P';
+			} else {
+				CAM_INFO(CAM_EEPROM, "Load from EEPROM");
+				strcpy(rear2_load_fw_ver, rear2_fw_ver);
+				loadfrom = 'E';
 			}
-			else { // UW OTP
-				/* rear2 sensor id */
-				memcpy(rear2_sensor_id, &e_ctrl->cal_data.mapdata[FROM_REAR2_SENSOR_ID_ADDR], FROM_SENSOR_ID_SIZE);
-				/* rear2 module id */
-				memcpy(rear2_module_id, &e_ctrl->cal_data.mapdata[REAR2_MODULE_ID_ADDR], FROM_MODULE_ID_SIZE);
 
-				rear2_sensor_id[FROM_SENSOR_ID_SIZE] = '\0';
-				rear2_module_id[FROM_MODULE_ID_SIZE] = '\0';
-
-				CAM_INFO(CAM_EEPROM,
-					"rear2 sensor id = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear2_sensor_id[0], rear2_sensor_id[1], rear2_sensor_id[2], rear2_sensor_id[3],
-					rear2_sensor_id[4], rear2_sensor_id[5], rear2_sensor_id[6], rear2_sensor_id[7],
-				 	rear2_sensor_id[8], rear2_sensor_id[9], rear2_sensor_id[10], rear2_sensor_id[11],
-					rear2_sensor_id[12], rear2_sensor_id[13], rear2_sensor_id[14], rear2_sensor_id[15]);
-
-				CAM_INFO(CAM_EEPROM, "rear2_module_id = %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
-					rear2_module_id[0], rear2_module_id[1], rear2_module_id[2], rear2_module_id[3], rear2_module_id[4],
-					rear2_module_id[5], rear2_module_id[6], rear2_module_id[7], rear2_module_id[8], rear2_module_id[9]);
-					
-				/* rear2 manufacturer info */
-				memcpy(rear2_fw_ver, &e_ctrl->cal_data.mapdata[REAR2_MODULE_FW_VERSION], FROM_MODULE_FW_INFO_SIZE);
-
-				rear2_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
-				CAM_INFO(CAM_EEPROM,
-					"rear2 manufacturer info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear2_fw_ver[0], rear2_fw_ver[1], rear2_fw_ver[2], rear2_fw_ver[3], rear2_fw_ver[4],
-					rear2_fw_ver[5], rear2_fw_ver[6], rear2_fw_ver[7], rear2_fw_ver[8], rear2_fw_ver[9],
-					rear2_fw_ver[10]);
-				/* temp phone version */
-#if defined(CONFIG_S5K3L6_SENSOR) && defined(CONFIG_HI1336_SENSOR)
-				if(e_ctrl->io_master_info.cci_client->sid == 0x21)
-					snprintf(rear2_phone_fw_ver, FROM_MODULE_FW_INFO_SIZE+1, "%s%s%s%s", "E12EF", "OAR0", "C", "A");
-				else
-#endif
-				snprintf(rear2_phone_fw_ver, FROM_MODULE_FW_INFO_SIZE+1, "%s%s%s%s", hw_phone_info_ultra_wide, sw_phone_info_ultra_wide, vendor_phone_info_ultra_wide, process_phone_info_ultra_wide);
-				rear2_phone_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
-				CAM_INFO(CAM_EEPROM,
-					"rear rear2_phone_fw_ver info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear2_phone_fw_ver[0], rear2_phone_fw_ver[1], rear2_phone_fw_ver[2], rear2_phone_fw_ver[3], rear2_phone_fw_ver[4],
-					rear2_phone_fw_ver[5], rear2_phone_fw_ver[6], rear2_phone_fw_ver[7], rear2_phone_fw_ver[8], rear2_phone_fw_ver[9],
-					rear2_phone_fw_ver[10]);
-
-#ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear rear2_phone_fw_ver info = %c %c %c %c %c %c %c %c %c %c %c",
-					rear2_phone_fw_ver[0], rear2_phone_fw_ver[1], rear2_phone_fw_ver[2], rear2_phone_fw_ver[3], rear2_phone_fw_ver[4],
-					rear2_phone_fw_ver[5], rear2_phone_fw_ver[6], rear2_phone_fw_ver[7], rear2_phone_fw_ver[8], rear2_phone_fw_ver[9],
-					rear2_phone_fw_ver[10]);
-#endif
-				/* temp load version */
-				if (strncmp(rear2_phone_fw_ver, rear2_fw_ver, HW_INFO_MAX_SIZE-1) == 0
-					&& strncmp(&rear2_phone_fw_ver[HW_INFO_MAX_SIZE-1], &rear2_fw_ver[HW_INFO_MAX_SIZE-1], SW_INFO_MAX_SIZE-1) >= 0) {
-					CAM_INFO(CAM_EEPROM, "Load from phone");
-					strcpy(rear2_load_fw_ver, rear2_phone_fw_ver);
-					loadfrom = 'P';
+			bVerNull = FALSE;
+			for(i = 0; i < FROM_MODULE_FW_INFO_SIZE; i ++) {
+				if(e_ctrl->cal_data.mapdata[REAR2_MODULE_FW_VERSION + i] >= 0x80
+					|| !isalnum(e_ctrl->cal_data.mapdata[REAR2_MODULE_FW_VERSION + i])) {
+					cal_ver[i] = ' ';
+					bVerNull = TRUE;
 				} else {
-					CAM_INFO(CAM_EEPROM, "Load from EEPROM");
-					strcpy(rear2_load_fw_ver, rear2_fw_ver);
-					loadfrom = 'E';
+					cal_ver[i] = e_ctrl->cal_data.mapdata[REAR2_MODULE_FW_VERSION + i];
 				}
 
-				bVerNull = FALSE;
-				for(i = 0; i < FROM_MODULE_FW_INFO_SIZE; i ++) {
-					cal_ver[i] = rear2_fw_ver[i];
+				if(rear2_phone_fw_ver[i] >= 0x80
+					|| !isalnum(rear2_phone_fw_ver[i]))
+					rear2_phone_fw_ver[i] = ' ';
+			}
+			sensor_ver[1] = rear2_sensor_id[8];
+			dll_ver[1] = e_ctrl->cal_data.mapdata[REAR2_DLL_VERSION_ADDR] - '0';
+			normal_cri_rev = CRITERION_REV_ULTRA_WIDE;
+			strcpy(ideal_ver, rear2_phone_fw_ver);
+			if(rear2_fw_ver[9] < 0x80 && isalnum(rear2_fw_ver[9])) {
+				ideal_ver[9] = rear2_fw_ver[9];
+			}
+			if(rear2_fw_ver[10] < 0x80 && isalnum(rear2_fw_ver[10])) {
+		    		ideal_ver[10] = rear2_fw_ver[10];
+			}
 
-					if(rear2_phone_fw_ver[i] >= 0x80
-						|| !isalnum(rear2_phone_fw_ver[i]))
-						rear2_phone_fw_ver[i] = ' ';
-				}
-				sensor_ver[1] = rear2_sensor_id[8];
-				dll_ver[1] = 0;
-				normal_cri_rev = CRITERION_REV_ULTRA_WIDE;
-				strcpy(ideal_ver, rear2_phone_fw_ver);
-				if(rear2_fw_ver[9] < 0x80 && isalnum(rear2_fw_ver[9])) {
-					ideal_ver[9] = rear2_fw_ver[9];
-				}
-				if(rear2_fw_ver[10] < 0x80 && isalnum(rear2_fw_ver[10])) {
-			    		ideal_ver[10] = rear2_fw_ver[10];
-				}
+			if(board_rev < normal_cri_rev && bVerNull == TRUE)
+			{
+				strcpy(cal_ver, ideal_ver);
+				loadfrom = 'P';
+				CAM_INFO(CAM_EEPROM, "set tmp ver: %s", cal_ver);
+			}
 
-				if(board_rev < normal_cri_rev && bVerNull == TRUE)
-				{
-					strcpy(cal_ver, ideal_ver);
-					loadfrom = 'P';
-					CAM_INFO(CAM_EEPROM, "set tmp ver: %s", cal_ver);
-				}
-
-				/* update EEPROM fw version on sysfs */
-				sprintf(cam2_fw_ver, "%s %s\n", rear2_fw_ver, rear2_load_fw_ver); //need check phone version
-				sprintf(cam2_fw_full_ver, "%s %s %s\n", rear2_fw_ver, rear2_phone_fw_ver, rear2_load_fw_ver);// needed check phone version.
+		/* update EEPROM fw version on sysfs */
+			sprintf(cam2_fw_ver, "%s %s\n", rear2_fw_ver, rear2_load_fw_ver); //need check phone version
+			sprintf(cam2_fw_full_ver, "%s %s %s\n", rear2_fw_ver, rear2_phone_fw_ver, rear2_load_fw_ver);// needed check phone version.
 
 #ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear2 manufacturer info = %c %c %c %c %c %c %c %c %c %c %c",
-					rear2_fw_ver[0], rear2_fw_ver[1], rear2_fw_ver[2], rear2_fw_ver[3], rear2_fw_ver[4],
-					rear2_fw_ver[5], rear2_fw_ver[6], rear2_fw_ver[7], rear2_fw_ver[8], rear2_fw_ver[9],
-					rear2_fw_ver[10]);
+			CAM_INFO(CAM_EEPROM, "rear2 manufacturer info = %c %c %c %c %c %c %c %c %c %c %c",
+				rear2_fw_ver[0], rear2_fw_ver[1], rear2_fw_ver[2], rear2_fw_ver[3], rear2_fw_ver[4],
+				rear2_fw_ver[5], rear2_fw_ver[6], rear2_fw_ver[7], rear2_fw_ver[8], rear2_fw_ver[9],
+				rear2_fw_ver[10]);
 #endif
-			}
 		}
 #if defined(CONFIG_SAMSUNG_REAR_TOF)
 		else if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_BACK_TOF) {
@@ -1661,184 +1191,106 @@ static int cam_eeprom_update_module_info(struct cam_eeprom_ctrl_t *e_ctrl)
 #if defined(CONFIG_SAMSUNG_REAR_QUAD)
 		else if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_BACK_MACRO) {
 			/* rear4 sensor id */
-			if(!is_cam_otp_enabled(e_ctrl)){ //MACRO EEPROM
-				memcpy(rear4_sensor_id, &e_ctrl->cal_data.mapdata[REAR4_SENSOR_ID_ADDR], FROM_SENSOR_ID_SIZE);
-				rear4_sensor_id[FROM_SENSOR_ID_SIZE] = '\0';
-				CAM_INFO(CAM_EEPROM,
-					"rear4 sensor id = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear4_sensor_id[0], rear4_sensor_id[1], rear4_sensor_id[2], rear4_sensor_id[3],
-					rear4_sensor_id[4], rear4_sensor_id[5], rear4_sensor_id[6], rear4_sensor_id[7],
-					rear4_sensor_id[8], rear4_sensor_id[9], rear4_sensor_id[10], rear4_sensor_id[11],
-					rear4_sensor_id[12], rear4_sensor_id[13], rear4_sensor_id[14], rear4_sensor_id[15]);
-	
-				/* rear4  module id */
-				memcpy(rear4_module_id, &e_ctrl->cal_data.mapdata[REAR4_MODULE_ID_ADDR], FROM_MODULE_ID_SIZE);
-	
-				rear4_module_id[FROM_MODULE_ID_SIZE] = '\0';
-				CAM_INFO(CAM_EEPROM, "rear3_module_id = %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
-					rear4_module_id[0], rear4_module_id[1], rear4_module_id[2], rear4_module_id[3], rear4_module_id[4],
-					rear4_module_id[5], rear4_module_id[6], rear4_module_id[7], rear4_module_id[8], rear4_module_id[9]);
-	
-				/* rear4 manufacturer info */
-				memcpy(rear4_fw_ver, &e_ctrl->cal_data.mapdata[REAR4_MODULE_FW_VERSION], FROM_MODULE_FW_INFO_SIZE);
-	
-				rear4_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
-				CAM_INFO(CAM_EEPROM,
-					"rear4 manufacturer info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear4_fw_ver[0], rear4_fw_ver[1], rear4_fw_ver[2], rear4_fw_ver[3], rear4_fw_ver[4],
-					rear4_fw_ver[5], rear4_fw_ver[6], rear4_fw_ver[7], rear4_fw_ver[8], rear4_fw_ver[9],
-					rear4_fw_ver[10]);
-	
-				/* temp rear4 phone version */
-				snprintf(rear4_phone_fw_ver, FROM_MODULE_FW_INFO_SIZE+1, "%s%s%s%s", rear4_hw_phone_info, rear4_sw_phone_info, rear4_vendor_phone_info, rear4_process_phone_info);
-	
-				/* temp rear4 load version */
-				CAM_INFO(CAM_EEPROM, "Load from rear4 EEPROM");
-				strcpy(rear4_load_fw_ver, rear4_fw_ver);
-				loadfrom = 'E';
-	
-				bVerNull = FALSE;
-				for(i = 0; i < FROM_MODULE_FW_INFO_SIZE; i ++) {
-					if(e_ctrl->cal_data.mapdata[REAR4_MODULE_FW_VERSION + i] >= 0x80
-						|| !isalnum(e_ctrl->cal_data.mapdata[REAR4_MODULE_FW_VERSION + i])) {
-						cal_ver[i] = ' ';
-						bVerNull = TRUE;
-					} else {
-						cal_ver[i] = e_ctrl->cal_data.mapdata[REAR4_MODULE_FW_VERSION + i];
-					}
-	
-					if(rear4_phone_fw_ver[i] >= 0x80 || !isalnum(rear4_phone_fw_ver[i]))
-						rear4_phone_fw_ver[i] = ' ';
+			memcpy(rear4_sensor_id, &e_ctrl->cal_data.mapdata[REAR4_SENSOR_ID_ADDR], FROM_SENSOR_ID_SIZE);
+			rear4_sensor_id[FROM_SENSOR_ID_SIZE] = '\0';
+			CAM_INFO(CAM_EEPROM,
+				"rear4 sensor id = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+				rear4_sensor_id[0], rear4_sensor_id[1], rear4_sensor_id[2], rear4_sensor_id[3],
+				rear4_sensor_id[4], rear4_sensor_id[5], rear4_sensor_id[6], rear4_sensor_id[7],
+				rear4_sensor_id[8], rear4_sensor_id[9], rear4_sensor_id[10], rear4_sensor_id[11],
+				rear4_sensor_id[12], rear4_sensor_id[13], rear4_sensor_id[14], rear4_sensor_id[15]);
+
+			/* rear4  module id */
+			memcpy(rear4_module_id, &e_ctrl->cal_data.mapdata[REAR4_MODULE_ID_ADDR], FROM_MODULE_ID_SIZE);
+
+			rear4_module_id[FROM_MODULE_ID_SIZE] = '\0';
+			CAM_INFO(CAM_EEPROM, "rear3_module_id = %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+				rear4_module_id[0], rear4_module_id[1], rear4_module_id[2], rear4_module_id[3], rear4_module_id[4],
+				rear4_module_id[5], rear4_module_id[6], rear4_module_id[7], rear4_module_id[8], rear4_module_id[9]);
+
+			/* rear4 manufacturer info */
+			memcpy(rear4_fw_ver, &e_ctrl->cal_data.mapdata[REAR4_MODULE_FW_VERSION], FROM_MODULE_FW_INFO_SIZE);
+
+			rear4_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
+			CAM_INFO(CAM_EEPROM,
+				"rear4 manufacturer info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+				rear4_fw_ver[0], rear4_fw_ver[1], rear4_fw_ver[2], rear4_fw_ver[3], rear4_fw_ver[4],
+				rear4_fw_ver[5], rear4_fw_ver[6], rear4_fw_ver[7], rear4_fw_ver[8], rear4_fw_ver[9],
+				rear4_fw_ver[10]);
+
+			/* temp rear4 phone version */
+			snprintf(rear4_phone_fw_ver, FROM_MODULE_FW_INFO_SIZE+1, "%s%s%s%s", rear4_hw_phone_info, rear4_sw_phone_info, rear4_vendor_phone_info, rear4_process_phone_info);
+
+			/* temp rear4 load version */
+			CAM_INFO(CAM_EEPROM, "Load from rear4 EEPROM");
+			strcpy(rear4_load_fw_ver, rear4_fw_ver);
+			loadfrom = 'E';
+
+			bVerNull = FALSE;
+			for(i = 0; i < FROM_MODULE_FW_INFO_SIZE; i ++) {
+				if(e_ctrl->cal_data.mapdata[REAR4_MODULE_FW_VERSION + i] >= 0x80
+					|| !isalnum(e_ctrl->cal_data.mapdata[REAR4_MODULE_FW_VERSION + i])) {
+					cal_ver[i] = ' ';
+					bVerNull = TRUE;
+				} else {
+					cal_ver[i] = e_ctrl->cal_data.mapdata[REAR4_MODULE_FW_VERSION + i];
 				}
-				sensor_ver[0] = rear4_sensor_id[8];
-				dll_ver[0] = e_ctrl->cal_data.mapdata[REAR4_DLL_VERSION_ADDR] - '0';
-	
-				sensor_ver[1] = 0;
-				dll_ver[1] = 0;
-				normal_cri_rev = CRITERION_REV;
-				strcpy(ideal_ver, rear4_phone_fw_ver);
-				if(rear4_phone_fw_ver[9] < 0x80 && isalnum(rear4_phone_fw_ver[9])) {
-					ideal_ver[9] = rear4_phone_fw_ver[9];
-				}
-				if(rear4_phone_fw_ver[10] < 0x80 && isalnum(rear4_phone_fw_ver[10])) {
-					ideal_ver[10] = rear4_phone_fw_ver[10];
-				}
-	
-				if(board_rev < normal_cri_rev && bVerNull == TRUE)
-				{
-					strcpy(cal_ver, ideal_ver);
-					CAM_ERR(CAM_EEPROM, "set tmp ver: %s", cal_ver);
-				}
-	
-				snprintf(rear4_module_info, SYSFS_MODULE_INFO_SIZE, "SSCAL %c%s%04X%04XR%02dM%cD%02XD%02XS%02XS%02X/%s%04X%04XR%02d",
-					loadfrom, cal_ver, (e_ctrl->is_supported >> 16) & 0xFFFF, e_ctrl->is_supported & 0xFFFF,
-					board_rev & 0xFF, map_ver, dll_ver[0] & 0xFF, dll_ver[1] & 0xFF, sensor_ver[0] & 0xFF, sensor_ver[1] & 0xFF,
-					ideal_ver, (normal_is_supported >> 16) & 0xFFFF, normal_is_supported & 0xFFFF, normal_cri_rev);
-	
+
+				if(rear4_phone_fw_ver[i] >= 0x80 || !isalnum(rear4_phone_fw_ver[i]))
+					rear4_phone_fw_ver[i] = ' ';
+			}
+			sensor_ver[0] = rear4_sensor_id[8];
+			dll_ver[0] = e_ctrl->cal_data.mapdata[REAR4_DLL_VERSION_ADDR] - '0';
+
+			sensor_ver[1] = 0;
+			dll_ver[1] = 0;
+			normal_cri_rev = CRITERION_REV;
+			strcpy(ideal_ver, rear4_phone_fw_ver);
+			if(rear4_phone_fw_ver[9] < 0x80 && isalnum(rear4_phone_fw_ver[9])) {
+				ideal_ver[9] = rear4_phone_fw_ver[9];
+			}
+			if(rear4_phone_fw_ver[10] < 0x80 && isalnum(rear4_phone_fw_ver[10])) {
+				ideal_ver[10] = rear4_phone_fw_ver[10];
+			}
+
+			if(board_rev < normal_cri_rev && bVerNull == TRUE)
+			{
+				strcpy(cal_ver, ideal_ver);
+				CAM_ERR(CAM_EEPROM, "set tmp ver: %s", cal_ver);
+			}
+
+			snprintf(rear4_module_info, SYSFS_MODULE_INFO_SIZE, "SSCAL %c%s%04X%04XR%02dM%cD%02XD%02XS%02XS%02X/%s%04X%04XR%02d",
+				loadfrom, cal_ver, (e_ctrl->is_supported >> 16) & 0xFFFF, e_ctrl->is_supported & 0xFFFF,
+				board_rev & 0xFF, map_ver, dll_ver[0] & 0xFF, dll_ver[1] & 0xFF, sensor_ver[0] & 0xFF, sensor_ver[1] & 0xFF,
+				ideal_ver, (normal_is_supported >> 16) & 0xFFFF, normal_is_supported & 0xFFFF, normal_cri_rev);
+
 #ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear4_info = %s", rear4_module_info);
+			CAM_INFO(CAM_EEPROM, "rear4_info = %s", rear4_module_info);
 #endif
-	
-				/* update EEPROM fw version on sysfs */
-				sprintf(cam4_fw_ver, "%s %s\n", rear4_fw_ver, rear4_load_fw_ver);
-				sprintf(cam4_fw_full_ver, "%s N %s\n", rear4_fw_ver, rear4_load_fw_ver);
-	
+
+			/* update EEPROM fw version on sysfs */
+			sprintf(cam4_fw_ver, "%s %s\n", rear4_fw_ver, rear4_load_fw_ver);
+			sprintf(cam4_fw_full_ver, "%s N %s\n", rear4_fw_ver, rear4_load_fw_ver);
+
 #ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear4 manufacturer info = %c %c %c %c %c %c %c %c %c %c %c",
-					cam4_fw_ver[0], cam4_fw_ver[1], cam4_fw_ver[2], cam4_fw_ver[3], cam4_fw_ver[4],
-					cam4_fw_ver[5], cam4_fw_ver[6], cam4_fw_ver[7], cam4_fw_ver[8], cam4_fw_ver[9],
-					cam4_fw_ver[10]);
+			CAM_INFO(CAM_EEPROM, "rear4 manufacturer info = %c %c %c %c %c %c %c %c %c %c %c",
+				cam4_fw_ver[0], cam4_fw_ver[1], cam4_fw_ver[2], cam4_fw_ver[3], cam4_fw_ver[4],
+				cam4_fw_ver[5], cam4_fw_ver[6], cam4_fw_ver[7], cam4_fw_ver[8], cam4_fw_ver[9],
+				cam4_fw_ver[10]);
 #endif
-	
-	
+
+
 #if  defined(FROM_REAR4_AF_CAL_MACRO_ADDR)
-				memcpy(&rear4_af_cal[0], &e_ctrl->cal_data.mapdata[FROM_REAR4_AF_CAL_MACRO_ADDR], 4);
+			memcpy(&rear4_af_cal[0], &e_ctrl->cal_data.mapdata[FROM_REAR4_AF_CAL_MACRO_ADDR], 4);
 #endif
 #if  defined(FROM_REAR4_AF_CAL_D10_ADDR)
-				memcpy(&rear4_af_cal[1], &e_ctrl->cal_data.mapdata[FROM_REAR4_AF_CAL_D10_ADDR], 4);
+			memcpy(&rear4_af_cal[1], &e_ctrl->cal_data.mapdata[FROM_REAR4_AF_CAL_D10_ADDR], 4);
 #endif
 #if  defined(FROM_REAR4_AF_CAL_PAN_ADDR)
-				memcpy(&rear4_af_cal[9], &e_ctrl->cal_data.mapdata[FROM_REAR4_AF_CAL_PAN_ADDR], 4);
+			memcpy(&rear4_af_cal[9], &e_ctrl->cal_data.mapdata[FROM_REAR4_AF_CAL_PAN_ADDR], 4);
 #endif
-				CAM_DBG(CAM_EEPROM, "rear4_af_cal[0] macro: %d, rear4_af_cal[9] pan: %d", rear4_af_cal[0], rear4_af_cal[9]);
-				
-			}
-			else { //MACRO OTP
-				/* rear4  sensor id */
-				memcpy(rear4_sensor_id, &e_ctrl->cal_data.mapdata[REAR4_SENSOR_ID_ADDR], FROM_SENSOR_ID_SIZE);
-				rear4_sensor_id[FROM_SENSOR_ID_SIZE] = '\0';
+			CAM_DBG(CAM_EEPROM, "rear4_af_cal[0] macro: %d, rear4_af_cal[9] pan: %d", rear4_af_cal[0], rear4_af_cal[9]);
 
-				CAM_INFO(CAM_EEPROM,
-					"rear4 sensor id = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear4_sensor_id[0], rear4_sensor_id[1], rear4_sensor_id[2], rear4_sensor_id[3],
-					rear4_sensor_id[4], rear4_sensor_id[5], rear4_sensor_id[6], rear4_sensor_id[7],
-					rear4_sensor_id[8], rear4_sensor_id[9], rear4_sensor_id[10], rear4_sensor_id[11],
-					rear4_sensor_id[12], rear4_sensor_id[13], rear4_sensor_id[14], rear4_sensor_id[15]);
-
-				/* rear4  module id */
-				memcpy(rear4_module_id, &e_ctrl->cal_data.mapdata[REAR4_MODULE_ID_ADDR], FROM_MODULE_ID_SIZE);
-				rear4_module_id[FROM_MODULE_ID_SIZE] = '\0';
-
-				CAM_INFO(CAM_EEPROM, "rear3_module_id = %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
-					rear4_module_id[0], rear4_module_id[1], rear4_module_id[2], rear4_module_id[3], rear4_module_id[4],
-					rear4_module_id[5], rear4_module_id[6], rear4_module_id[7], rear4_module_id[8], rear4_module_id[9]);
-	
-				/* rear4 manufacturer info */
-				memcpy(rear4_fw_ver, &e_ctrl->cal_data.mapdata[REAR4_MODULE_FW_VERSION], FROM_MODULE_FW_INFO_SIZE);
-	
-				rear4_fw_ver[FROM_MODULE_FW_INFO_SIZE] = '\0';
-				CAM_INFO(CAM_EEPROM,
-					"rear4 manufacturer info = %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-					rear4_fw_ver[0], rear4_fw_ver[1], rear4_fw_ver[2], rear4_fw_ver[3], rear4_fw_ver[4],
-					rear4_fw_ver[5], rear4_fw_ver[6], rear4_fw_ver[7], rear4_fw_ver[8], rear4_fw_ver[9],
-					rear4_fw_ver[10]);
-	
-				/* temp rear4 phone version */
-				snprintf(rear4_phone_fw_ver, FROM_MODULE_FW_INFO_SIZE+1, "%s%s%s%s", rear4_hw_phone_info, rear4_sw_phone_info, rear4_vendor_phone_info, rear4_process_phone_info);
-	
-				/* temp rear4 load version */
-				CAM_INFO(CAM_EEPROM, "Load from rear4 EEPROM");
-				strcpy(rear4_load_fw_ver, rear4_fw_ver);
-				loadfrom = 'E';
-	
-				bVerNull = FALSE;
-				for(i = 0; i < FROM_MODULE_FW_INFO_SIZE; i ++) {
-					cal_ver[i] = rear4_fw_ver[i];
-	
-					if(rear4_phone_fw_ver[i] >= 0x80 || !isalnum(rear4_phone_fw_ver[i]))
-						rear4_phone_fw_ver[i] = ' ';
-				}
-				sensor_ver[0] = rear4_sensor_id[8];
-				dll_ver[0] = 0;
-	
-				sensor_ver[1] = 0;
-				dll_ver[1] = 0;
-				normal_cri_rev = CRITERION_REV;
-				strcpy(ideal_ver, rear4_phone_fw_ver);
-				if(rear4_phone_fw_ver[9] < 0x80 && isalnum(rear4_phone_fw_ver[9])) {
-					ideal_ver[9] = rear4_phone_fw_ver[9];
-				}
-				if(rear4_phone_fw_ver[10] < 0x80 && isalnum(rear4_phone_fw_ver[10])) {
-					ideal_ver[10] = rear4_phone_fw_ver[10];
-				}
-	
-				if(board_rev < normal_cri_rev && bVerNull == TRUE)
-				{
-					strcpy(cal_ver, ideal_ver);
-					CAM_ERR(CAM_EEPROM, "set tmp ver: %s", cal_ver);
-				}
-	
-				/* update EEPROM fw version on sysfs */
-				sprintf(cam4_fw_ver, "%s %s\n", rear4_fw_ver, rear4_load_fw_ver);
-				sprintf(cam4_fw_full_ver, "%s %s %s\n", rear4_fw_ver, rear4_phone_fw_ver, rear4_load_fw_ver);
-	
-#ifdef CAM_EEPROM_DBG
-				CAM_INFO(CAM_EEPROM, "rear4 manufacturer info = %c %c %c %c %c %c %c %c %c %c %c",
-					cam4_fw_ver[0], cam4_fw_ver[1], cam4_fw_ver[2], cam4_fw_ver[3], cam4_fw_ver[4],
-					cam4_fw_ver[5], cam4_fw_ver[6], cam4_fw_ver[7], cam4_fw_ver[8], cam4_fw_ver[9],
-					cam4_fw_ver[10]);
-#endif
-			}
 		}
 #endif
 #if defined(CONFIG_SAMSUNG_FRONT_TOF)
@@ -2318,7 +1770,7 @@ int32_t cam_eeprom_check_firmware_cal(uint32_t camera_cal_crc, uint8_t cal_map_v
 	else
 		CAM_INFO(CAM_EEPROM, "ISP Ver : %c", version_isp);
 
-	if (version_isp != 'Q' && version_isp != 'U' && version_isp != 'A' && version_isp != 'X' && version_isp != 'E') {
+	if (version_isp != 'Q' && version_isp != 'U' && version_isp != 'A' && version_isp != 'X') {
 		CAM_ERR(CAM_EEPROM, "This is not Qualcomm module!");
 
 		if (idx == CAM_EEPROM_IDX_WIDE || idx == CAM_EEPROM_IDX_ULTRA_WIDE || idx == CAM_EEPROM_IDX_BOKEH) {
@@ -2565,7 +2017,7 @@ int32_t cam_eeprom_check_firmware_cal(uint32_t camera_cal_crc, uint8_t cal_map_v
 			strncpy(front_cam_fw_factory_ver, "NG_VER", SYSFS_FW_VER_SIZE);
 		} else {
 			if (camera_cal_ack == CRASH)
-				strncpy(front_cam_fw_factory_ver, "NG_VER", SYSFS_FW_VER_SIZE);
+				strncpy(front_cam_fw_factory_ver, "NG_CRC", SYSFS_FW_VER_SIZE);
 			else
 				strncpy(front_cam_fw_factory_ver, "OK", SYSFS_FW_VER_SIZE);
 		}
@@ -2748,164 +2200,31 @@ static uint32_t cam_eeprom_match_crc(struct cam_eeprom_memory_block_t *data, uin
 }
 
 #if defined(CONFIG_SAMSUNG_CAMERA_OTP)
-
-/*
- * cam_otp_read_memory() - read map data into buffer
- * @e_ctrl:	otp control struct
- * @block:	block to be read
- *
- * This function iterates through blocks stored in block->map, reads each
- * region and concatenate them into the pre-allocated block->mapdata
- */
-static int cam_otp_read_memory(struct cam_eeprom_ctrl_t *e_ctrl, 
-							   struct cam_eeprom_memory_block_t *block)
-{
-	int rc = 0;
-	
-	if(e_ctrl->soc_info.index != CAM_EEPROM_IDX_ULTRA_WIDE) {
-#ifdef CONFIG_GC5035_SENSOR
-		rc = cam_otp_gc5035_read_memory(e_ctrl, block);
-#endif
-	}else{
-#if defined(CONFIG_S5K3L6_SENSOR) && defined(CONFIG_HI1336_SENSOR)
-		if(e_ctrl->io_master_info.cci_client->sid == 0x21)
-			rc = cam_otp_hi1336_read_memory(e_ctrl, block);
-		else
-			rc = cam_otp_s5k3l6_read_memory(e_ctrl, block);
-#elif defined(CONFIG_S5K3L6_SENSOR)
-		rc = cam_otp_s5k3l6_read_memory(e_ctrl, block);
-#elif defined(CONFIG_S5K4HA_SENSOR)
-		rc = cam_otp_s5k4ha_read_memory(e_ctrl, block);
-#endif
-	}
-
-	return rc;
-}										   
-
 #ifdef CONFIG_GC5035_SENSOR
 /**
-  * cam_otp_gc5035_read() - read map data into buffer for gc5035
-  * @e_ctrl:	otp control struct
-  * @addr:	memory address to be read
-  * @memptr	memory address to be stored
-  *
-  * This function iterates through blocks stored in block->map, reads each
-  * region and concatenate them into the pre-allocated block->mapdata
-  */
-static int cam_otp_gc5035_read(struct cam_eeprom_ctrl_t *e_ctrl, uint32_t addr,
-                                uint8_t *memptr)
-{
-    int rc = 0;
-    struct cam_sensor_i2c_reg_setting i2c_reg_settings;
-    struct cam_sensor_i2c_reg_array i2c_reg_array;
-    enum camera_sensor_i2c_type data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
-    enum camera_sensor_i2c_type addr_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
-    uint32_t busy_addr = 0;
-    uint32_t busy_data = 0;
-    int k=0;
-
-    if (!e_ctrl)
-    {
-        CAM_ERR(CAM_EEPROM, "e_ctrl is NULL");
-        return -EINVAL;
-    }
-
-    i2c_reg_settings.addr_type = addr_type;
-    i2c_reg_settings.data_type = data_type;
-    i2c_reg_settings.size = 1;
-    i2c_reg_settings.delay =0;
-    i2c_reg_array.delay = 0;
-
-    // OTP (12:8)
-    i2c_reg_array.reg_addr = 0x69;
-    i2c_reg_array.reg_data = ((addr*8)&(0x1F00))>>8;
-    i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM,"%s:(%d) write addr failed\n", __func__, __LINE__);
-        goto err;
-    }
-
-    // OTP (7:0)
-    i2c_reg_array.reg_addr = 0x6A;
-    i2c_reg_array.reg_data = ((addr*8)&(0x00FF));
-    i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM,"%s:(%d) write addr failed\n", __func__, __LINE__);
-        goto err;
-    }
-
-    // OTP read pulse , Do read OTP
-    i2c_reg_array.reg_addr = 0xF3;
-    i2c_reg_array.reg_data = 0x20;
-    i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM,"%s:(%d) write pluse failed\n", __func__, __LINE__);
-        goto err;
-    }
-
-    // check busy flag
-    busy_addr = 0x6F;
-    for(k = 0; k < 20; k++)
-    {
-        rc = camera_io_dev_read(&(e_ctrl->io_master_info), busy_addr,&busy_data,addr_type,data_type);
-        if (rc < 0)
-        {
-            CAM_ERR(CAM_EEPROM,"%s:(%d) read data failed\n", __func__, __LINE__);
-            goto err;
-        }
-        if(busy_data & 0x04)
-        {
-            msleep(2);
-            CAM_ERR(CAM_EEPROM,"busy writing addr %x",addr);
-        }
-        else
-        {
-            break;
-        }
-    }
-    // read one byte
-    rc = camera_io_dev_read_seq(&e_ctrl->io_master_info, 0x6C, memptr, addr_type, data_type, 1);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM, "read failed rc %d", rc);
-    }
-
-err:
-    return rc;
-}
-
-/**
-  * cam_otp_gc5035_read_memory() - read map data into buffer
+  * cam_otp_read_memory() - read map data into buffer
   * @e_ctrl:	otp control struct
   * @block:	block to be read
   *
   * This function iterates through blocks stored in block->map, reads each
   * region and concatenate them into the pre-allocated block->mapdata
   */
-static int cam_otp_gc5035_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
+static int cam_otp_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
                                struct cam_eeprom_memory_block_t *block)
 {
     int rc = 0;
     struct cam_eeprom_memory_map_t *emap = block->map;
+    struct cam_sensor_i2c_reg_setting i2c_reg_settings;
+    struct cam_sensor_i2c_reg_array i2c_reg_array;
     struct cam_eeprom_soc_private *eb_info;
     uint8_t *memptr = block->mapdata;
     enum camera_sensor_i2c_type data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
     enum camera_sensor_i2c_type addr_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
     uint32_t addr = 0, read_size = 0;
-    int j=0;
+    uint32_t busy_addr = 0;
+    uint32_t busy_data = 0;
+    int k=0, j=0;
     int read_bytes = 0;
-    uint8_t OTP_Bank = 0;
-    uint32_t OTP_Page = 0;
-    uint32_t offset = 0;
 
     if (!e_ctrl)
     {
@@ -2914,6 +2233,12 @@ static int cam_otp_gc5035_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
     }
 
     eb_info = (struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
+
+    i2c_reg_settings.addr_type = addr_type;
+    i2c_reg_settings.data_type = data_type;
+    i2c_reg_settings.size = 1;
+    i2c_reg_settings.delay =0;
+    i2c_reg_array.delay = 0;
 
     //load otp global setfile
     rc = camera_io_dev_write(&e_ctrl->io_master_info, &load_otp_setfile);
@@ -2931,58 +2256,12 @@ static int cam_otp_gc5035_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
         return rc;
     }
 
-    // check page
-    rc = camera_io_dev_read(&(e_ctrl->io_master_info), SENSOR_OTP_PAGE_SELECT_REGISTER,&OTP_Page,addr_type,data_type);
-    if (rc < 0)
-    {
-        pr_err("%s:(%d) read failed\n", __func__, __LINE__);
-        return rc;
-    }
-    pr_info("%s:%d current page: %d\n", __func__, __LINE__, OTP_Page);
-
-    // select bank
-    rc = cam_otp_gc5035_read(e_ctrl, SENSOR_OTP_BANK_SELECT_REGISTER, &OTP_Bank);
-    if (rc < 0)
-    {
-        pr_err("%s:(%d) read failed\n", __func__, __LINE__);
-    }
-    pr_info("%s:%d read OTP_Bank: %d\n", __func__, __LINE__, OTP_Bank);
-
-    switch (OTP_Bank)
-    {
-    // Refer to OTP document
-    case 1:
-        offset = 0x00;
-        break;
-
-    case 3:
-        if(e_ctrl->soc_info.index == 4)
-            offset = 0xF4;
-        else
-            offset = 0x80;
-        break;
-
-    case 7:
-        offset = 0x100;
-        break;
-
-    case 0xF:
-        offset = 0x180;
-        break;
-
-    default:
-        pr_err("%s: Bank error : Bank(%d)\n", __func__, OTP_Bank);
-        return -EINVAL;
-    }
-
-    pr_info("%s:%d read OTP offset: 0x%x\n", __func__, __LINE__, offset);
-
     msleep(10);
     for (j = 1; j < block->num_map; j++)
     {
         read_size = emap[j].mem.valid_size;
         memptr = block->mapdata + emap[j].mem.addr;
-        addr = emap[j].mem.addr + SENSOR_OTP_PAGE_START_REGISTER + offset;
+        addr = emap[j].mem.addr + SENSOR_OTP_PAGE_START_REGISTER;
 
         CAM_DBG(CAM_EEPROM, "[%d / %d] memptr = %pK, emap[j].mem.addr = 0x%X, size = 0x%X, subdev = %d read_size=%u device_type = %d",
                 j, block->num_map, memptr, emap[j].mem.addr, emap[j].mem.valid_size, e_ctrl->soc_info.index, read_size, e_ctrl->eeprom_device_type);
@@ -3000,11 +2279,64 @@ static int cam_otp_gc5035_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
         CAM_INFO(CAM_EEPROM, "emap[%d].mem.addr=0x%x block->mapdata=%pK memptr=%pK OTP addr=0x%x\n", j, emap[j].mem.addr, block->mapdata, memptr, addr);
         while(read_size > 0)
         {
-            rc = cam_otp_gc5035_read(e_ctrl, addr, memptr);
+            // OTP (12:8)
+            i2c_reg_array.reg_addr = 0x69;
+            i2c_reg_array.reg_data = ((addr*8)&(0x1F00))>>8;
+            i2c_reg_settings.reg_setting = &i2c_reg_array;
+
+            rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
             if (rc < 0)
             {
-                CAM_ERR(CAM_EEPROM, "camera otp read fail rc:%d", rc);
-                goto err;
+                CAM_ERR(CAM_EEPROM,"%s:(%d) write addr failed\n", __func__, __LINE__);
+            }
+
+            // OTP (7:0)
+            i2c_reg_array.reg_addr = 0x6A;
+            i2c_reg_array.reg_data = ((addr*8)&(0x00FF));
+            i2c_reg_settings.reg_setting = &i2c_reg_array;
+
+            rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
+            if (rc < 0)
+            {
+                CAM_ERR(CAM_EEPROM,"%s:(%d) write addr failed\n", __func__, __LINE__);
+            }
+
+            // OTP read pulse , Do read OTP
+            i2c_reg_array.reg_addr = 0xF3;
+            i2c_reg_array.reg_data = 0x20;
+            i2c_reg_settings.reg_setting = &i2c_reg_array;
+
+            rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
+            if (rc < 0)
+            {
+                CAM_ERR(CAM_EEPROM,"%s:(%d) write pluse failed\n", __func__, __LINE__);
+            }
+
+            // check busy flag
+            busy_addr = 0x6F;
+            for(k = 0; k < 20; k++)
+            {
+                rc = camera_io_dev_read(&(e_ctrl->io_master_info), busy_addr,&busy_data,addr_type,data_type);
+                if (rc < 0)
+                {
+                    CAM_ERR(CAM_EEPROM,"%s:(%d) read data failed\n", __func__, __LINE__);
+                }
+                if(busy_data & 0x04)
+                {
+                    msleep(2);
+                    CAM_ERR(CAM_EEPROM,"busy writing addr %x",addr);
+                }
+                else
+                {
+                    break;
+                }
+            }
+            // read one byte
+            rc = camera_io_dev_read_seq(&e_ctrl->io_master_info, 0x6C, memptr, addr_type, data_type, 1);
+            if (rc < 0)
+            {
+                CAM_ERR(CAM_EEPROM, "read failed rc %d", rc);
+                return rc;
             }
             CAM_DBG(CAM_EEPROM,"read_bytes = %d memptr[0]=%c *memptr=%c memptr=%pK\n", read_bytes, memptr[0], *memptr, memptr);
             read_size -= 1;
@@ -3015,907 +2347,9 @@ static int cam_otp_gc5035_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
     }
     memptr = block->mapdata;
     CAM_ERR(CAM_EEPROM,"read data done memptr=%pK VR:: End\n",memptr);
-
-err:
     return rc;
 }
-#endif //CONFIG_GC5035_SENSOR
-
-#ifdef CONFIG_HI1336_SENSOR
-/**
- * cam_otp_hi1336_init() - init for hi1336 OTP
- * @io_master_info:	otp io struct
- *
- * This function is used for initilize hi1336 OTP to read/write data from OTP
- */
-
-static int cam_otp_hi1336_init( struct camera_io_master *io_master_info)
-{
-    int	rc = 0;
-
-    if ( !io_master_info )
-    {
-        CAM_ERR( CAM_EEPROM, "io_master_info is NULL" );
-        return(-EINVAL);
-    }
-
-    /* load otp global setfile */
-    rc = camera_io_dev_write( io_master_info, &load_hi1336_otp_setfile );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "load otp globle setfile failed" );
-        return(rc);
-    }
-
-    /* OTP initial setting1 write */
-    rc = camera_io_dev_write( io_master_info, &hi1336_otp_init_setting1 );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "load otp initial setfile1 failed" );
-        return(rc);
-    }
-
-    msleep(10);
-
-    /* OTP initial setting2 write */
-    rc = camera_io_dev_write( io_master_info, &hi1336_otp_init_setting2 );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "load otp initial setfile2 failed" );
-        return(rc);
-    }
-
-    CAM_INFO( CAM_EEPROM, "load otp init setting done!");
-    return rc;
-}
-
-/**
- * cam_otp_hi1336_read() - read map data into buffer for hi1336
- * @io_master_info:	otp io struct
- * @addr:	memory address to be read
- * @memptr	memory address to be stored
- *
- * This function iterates through blocks stored in block->map, reads each
- * region and concatenate them into the pre-allocated block->mapdata
- */
-
-static int cam_otp_hi1336_read( struct camera_io_master *io_master_info, uint32_t addr,
-                                uint8_t *memptr )
-{
-    int					rc = 0;
-    struct cam_sensor_i2c_reg_setting	i2c_reg_settings;
-    struct cam_sensor_i2c_reg_array		i2c_reg_array;
-    enum camera_sensor_i2c_type		addr_type	= CAMERA_SENSOR_I2C_TYPE_WORD;
-    enum camera_sensor_i2c_type		data_type	= CAMERA_SENSOR_I2C_TYPE_BYTE;
-    uint32_t				read_addr		= 0;
-
-    if ( !io_master_info )
-    {
-        CAM_ERR( CAM_EEPROM, "io_master_info is NULL" );
-        return(-EINVAL);
-    }
-
-    i2c_reg_settings.addr_type	= addr_type;
-    i2c_reg_settings.data_type	= data_type;
-    i2c_reg_settings.size		= 1;
-    i2c_reg_settings.delay		= 4;
-    i2c_reg_array.delay		= 4;
-
-    /* high address */
-    i2c_reg_array.reg_addr		= 0x030a;
-    i2c_reg_array.reg_data		= (addr >> 8) & 0xff;
-    i2c_reg_settings.reg_setting	= &i2c_reg_array;
-
-    rc = camera_io_dev_write( io_master_info, &i2c_reg_settings );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "write high address failed" );
-        goto err;
-    }
-
-    /* low address */
-    i2c_reg_array.reg_addr		= 0x030b;
-    i2c_reg_array.reg_data		= addr & 0xff;
-    i2c_reg_settings.reg_setting	= &i2c_reg_array;
-
-    rc = camera_io_dev_write( io_master_info, &i2c_reg_settings );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "write low address failed" );
-        goto err;
-    }
-
-    /* OTP continue read mode */
-    i2c_reg_array.reg_addr		= 0x0302;
-    i2c_reg_array.reg_data		= 0x01;
-    i2c_reg_settings.reg_setting	= &i2c_reg_array;
-
-    rc = camera_io_dev_write( io_master_info, &i2c_reg_settings );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "continuous read failed" );
-        goto err;
-    }
-
-    /* OTP data verify */
-    rc = camera_io_dev_read( io_master_info, 0x030a, &read_addr, addr_type, addr_type );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "read failed rc %d", rc );
-    }
-    if(read_addr != addr)
-    CAM_INFO( CAM_EEPROM, "addr=0x%x read_addr=0x%x", addr, read_addr );
-
-    /* OTP data read */
-    rc = camera_io_dev_read_seq( io_master_info, 0x0308, memptr, addr_type, data_type, 1 );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "read failed rc %d", rc );
-    }
-
-    CAM_DBG( CAM_EEPROM, "addr=0x%x  read_addr=0x%x  *memptr=0x%x", addr, read_addr, *memptr );
-
-err:
-    return(rc);
-}
-
-/**
- * cam_otp_hi1336_burst_read() - read map data into buffer with burst mode
- * @io_master_info:	otp io struct
- * @addr: start memory for reading
- * @memptr:	block to be read
- * @read_size: buffer count to be read
- *
- * This function iterates through blocks stored in block->map, reads each
- * region and concatenate them into the pre-allocated block->mapdata
- */
-
-static int cam_otp_hi1336_burst_read( struct camera_io_master *io_master_info, uint32_t addr,
-                                      uint8_t *memptr, uint32_t read_size )
-{
-    int					rc = 0;
-    struct cam_sensor_i2c_reg_setting	i2c_reg_settings;
-    struct cam_sensor_i2c_reg_array		i2c_reg_array;
-    enum camera_sensor_i2c_type		addr_type	= CAMERA_SENSOR_I2C_TYPE_WORD;
-    enum camera_sensor_i2c_type		data_type	= CAMERA_SENSOR_I2C_TYPE_BYTE;
-    uint32_t				read_addr		= 0;
-
-    if ( !io_master_info )
-    {
-        CAM_ERR( CAM_EEPROM, "io_master_info is NULL" );
-        return(-EINVAL);
-    }
-
-    i2c_reg_settings.addr_type	= addr_type;
-    i2c_reg_settings.data_type	= data_type;
-    i2c_reg_settings.size		= 1;
-    i2c_reg_settings.delay		= 4;
-    i2c_reg_array.delay		= 4;
-
-    /* high address */
-    i2c_reg_array.reg_addr		= 0x030a;
-    i2c_reg_array.reg_data		= (addr >> 8) & 0xff;
-    i2c_reg_settings.reg_setting	= &i2c_reg_array;
-
-    rc = camera_io_dev_write( io_master_info, &i2c_reg_settings );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "write high address failed" );
-        goto err;
-    }
-
-    /* low address */
-    i2c_reg_array.reg_addr		= 0x030b;
-    i2c_reg_array.reg_data		= addr & 0xff;
-    i2c_reg_settings.reg_setting	= &i2c_reg_array;
-
-    rc = camera_io_dev_write( io_master_info, &i2c_reg_settings );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "write low address failed" );
-        goto err;
-    }
-
-    /* OTP read mode */
-    i2c_reg_array.reg_addr		= 0x0302;
-    i2c_reg_array.reg_data		= 0x01;
-    i2c_reg_settings.reg_setting	= &i2c_reg_array;
-
-    rc = camera_io_dev_write( io_master_info, &i2c_reg_settings );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "continuous read failed" );
-        goto err;
-    }
-
-    /* OTP data verify*/
-    rc = camera_io_dev_read( io_master_info, 0x030a, &read_addr, addr_type, addr_type );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "read failed rc %d", rc );
-    }
-
-    if(read_addr != addr)
-    CAM_INFO( CAM_EEPROM, "addr=0x%x read_addr=0x%x", addr, read_addr );
-
-    /* burst read on */
-    i2c_reg_array.reg_addr		= 0x0712;
-    i2c_reg_array.reg_data		= 0x01;
-    i2c_reg_settings.reg_setting	= &i2c_reg_array;
-
-    rc = camera_io_dev_write( io_master_info, &i2c_reg_settings );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "continuous read failed" );
-        goto err;
-    }
-
-    /* OTP data burst read */
-    rc = camera_io_dev_read_seq( io_master_info, 0x0308, memptr, addr_type, data_type, read_size );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "read failed rc %d", rc );
-    }
-
-    /* burst read off */
-    i2c_reg_array.reg_addr		= 0x0712;
-    i2c_reg_array.reg_data		= 0x00;
-    i2c_reg_settings.reg_setting	= &i2c_reg_array;
-
-    rc = camera_io_dev_write( io_master_info, &i2c_reg_settings );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "continuous read failed" );
-        goto err;
-    }
-
-err:
-    return(rc);
-}
-
-/**
- * cam_otp_hi1336_read_memory() - read map data into buffer
- * @e_ctrl:	otp control struct
- * @block:	block to be read
- *
- * This function iterates through blocks stored in block->map, reads each
- * region and concatenate them into the pre-allocated block->mapdata
- */
-
-static int cam_otp_hi1336_read_memory( struct cam_eeprom_ctrl_t *e_ctrl,
-                                       struct cam_eeprom_memory_block_t *block )
-
-{
-    struct cam_eeprom_memory_map_t	*emap	= block->map;
-    struct cam_eeprom_soc_private	*eb_info;
-    uint32_t	addr		= 0;
-    uint32_t	read_size	= 0;
-    uint32_t	offset = 0;
-    uint8_t		OTP_Bank	= 0;
-    uint8_t				*memptr = block->mapdata;
-    int		read_bytes	= 0;
-    int		rc	= 0;
-    int		j	= 0;
-
-    if ( !e_ctrl )
-    {
-        CAM_ERR( CAM_EEPROM, "e_ctrl is NULL" );
-        return(-EINVAL);
-    }
-
-    eb_info = (struct cam_eeprom_soc_private *) e_ctrl->soc_info.soc_private;
-
-    rc = cam_otp_hi1336_init(&e_ctrl->io_master_info);
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "OTP init failed" );
-        goto err;
-    }
-
-    /* select bank */
-    rc = cam_otp_hi1336_read( &e_ctrl->io_master_info, SENSOR_HI1336_OTP_BANK_SELECT_REGISTER, &OTP_Bank );
-
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "read data failed" );
-        goto err;
-    }
-    CAM_INFO( CAM_EEPROM, "current OTP_Bank: %d", OTP_Bank );
-
-    switch ( OTP_Bank )
-    {
-    /* Refer to OTP document */
-    case 0:
-    case 1:
-        offset = 0x0400;
-        break;
-
-    case 3:
-        offset = 0x0880;
-        break;
-
-    case 7:
-        offset = 0x0D00;
-        break;
-
-    case 0xF:
-        offset = 0x1180;
-        break;
-
-    default:
-        CAM_INFO( CAM_EEPROM, "Bank error : Bank(%d)", OTP_Bank );
-        return EINVAL;
-    }
-    CAM_INFO( CAM_EEPROM, "read OTP offset: 0x%x", offset );
-
-    for ( j = 1; j < block->num_map; j++ )
-    {
-        read_size	= emap[j].mem.valid_size;
-        memptr		= block->mapdata + emap[j].mem.addr;
-        addr		= emap[j].mem.addr + offset;
-
-        CAM_INFO( CAM_EEPROM, "emap[%d / %d].mem.addr=0x%x OTP addr=0x%x read_size=0x%x mapdata=%pK memptr=%pK subdev=%d type=%d",
-                  j, block->num_map, emap[j].mem.addr, addr, read_size, block->mapdata, memptr, e_ctrl->soc_info.index, e_ctrl->eeprom_device_type );
-
-        cam_otp_hi1336_burst_read( &e_ctrl->io_master_info, addr, memptr, read_size );
-        memptr		+= read_size;
-    }
-    CAM_INFO( CAM_EEPROM, "read data done memptr=%pK VR:: End read_bytes=0x%x\n", memptr, read_bytes );
-
-    /* OTP finish setting1 write */
-    rc = camera_io_dev_write( &e_ctrl->io_master_info, &hi1336_otp_finish_setting1 );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "load otp finish setfile1 failed" );
-        return(rc);
-    }
-
-    msleep(10);
-
-    /* OTP finish setting2 write */
-    rc = camera_io_dev_write( &e_ctrl->io_master_info, &hi1336_otp_finish_setting2 );
-    if ( rc < 0 )
-    {
-        CAM_ERR( CAM_EEPROM, "load otp finish setfile2 failed" );
-        return(rc);
-    }
-
-err:
-    return(rc);
-}
-#endif /* CONFIG_HI1336_SENSOR */
-
-#if defined(CONFIG_S5K3L6_SENSOR)
-/**
-  * cam_otp_s5k3l6_read_memory() - read map data into buffer
-  * @e_ctrl: otp control struct
-  * @block:	block to be read
-  *
-  * This function iterates through blocks stored in block->map, reads each
-  * region and concatenate them into the pre-allocated block->mapdata
-  */
-#define S5K3L6_OTP_CONTROL_REGISTER                     0x0A00
-#define S5K3L6_OTP_PAGE_SELECT_REGISTER                 0x0A02
-#define S5K3L6_OTP_BANK_SELECT_REGISTER                 0x0A04
-#define S5K3L6_OTP_PAGE_START_REGISTER                  0x0A04
-#define S5K3L6_OTP_PAGE_END_REGISTER                    0x0A43
-#define S5K3L6_OTP_TOTAL_PAGE_COUNT                     0x0040
-#define S5K3L6_OTP_PAGE_SIZE                            0x0040
-#define S5K3L6_OTP_READ_PAGE_OFFSET                     0x0A04
-
-static int cam_otp_s5k3l6_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
-                                      struct cam_eeprom_memory_block_t *block)
-{
-    int rc = 0;
-    struct cam_eeprom_memory_map_t *emap = block->map;
-    struct cam_eeprom_soc_private *eb_info = NULL;
-    uint8_t *memptr = block->mapdata;
-    struct cam_sensor_i2c_reg_setting i2c_reg_settings;
-    struct cam_sensor_i2c_reg_array i2c_reg_array;
-    enum camera_sensor_i2c_type data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
-    enum camera_sensor_i2c_type addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
-    uint32_t OTP_Bank = 0, OTP_Page = 0;
-    uint16_t start_addr = 0, end_addr = 0;
-    int read_bytes = 0, j = 0;
-    int total_bytes_to_read = 0;
-
-    if (!e_ctrl)
-    {
-        CAM_ERR(CAM_EEPROM, "%s e_ctrl is NULL");
-        return -EINVAL;
-    }
-
-    eb_info = (struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
-
-    i2c_reg_settings.addr_type = addr_type;
-    i2c_reg_settings.data_type = data_type;
-    i2c_reg_settings.size = 1;
-    i2c_reg_settings.delay =0;
-    OTP_Page = 52;
-
-    // enable init state
-    i2c_reg_array.reg_addr = S5K3L6_OTP_CONTROL_REGISTER;
-    i2c_reg_array.reg_data = 0x04;
-    i2c_reg_settings.reg_setting = &i2c_reg_array;
-    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM, "write initial state failed");
-        goto err;
-    }
-
-    // set the first page in Bank1
-    i2c_reg_array.reg_addr = S5K3L6_OTP_PAGE_SELECT_REGISTER;
-    i2c_reg_array.reg_data = OTP_Page;
-    i2c_reg_settings.reg_setting = &i2c_reg_array;
-    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM, "write page[%d] failed", OTP_Page);
-        goto err;
-    }
-
-    // set read mode
-    i2c_reg_array.reg_addr = S5K3L6_OTP_CONTROL_REGISTER;
-    i2c_reg_array.reg_data = 0x01;
-    i2c_reg_settings.reg_setting = &i2c_reg_array;
-    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM, "set read mode failed");
-        goto err;
-    }
-
-    // wait 47us
-    usleep_range(47, 50);
-
-    // select bank
-    rc = camera_io_dev_read(&(e_ctrl->io_master_info), S5K3L6_OTP_BANK_SELECT_REGISTER, &OTP_Bank, addr_type, data_type);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM, "read failed");
-        goto err;
-    }
-
-    switch (OTP_Bank)
-    {
-    case 0:
-    case 1:
-        OTP_Page = 52;
-        break;
-    case 3:
-        OTP_Page = 58;
-        break;
-    default:
-        CAM_ERR(CAM_EEPROM, "Bank error : Bank(%d)", OTP_Bank);
-        return -EINVAL;
-    }
-
-    CAM_INFO(CAM_EEPROM, "read OTP_Bank: %d set page: %d num_map=%d", OTP_Bank, OTP_Page, block->num_map);
-
-    // disable read mode
-    i2c_reg_array.reg_addr = S5K3L6_OTP_CONTROL_REGISTER ;
-    i2c_reg_array.reg_data = 0x00;
-    i2c_reg_settings.reg_setting = &i2c_reg_array;
-    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM, "disable read mode failed");
-        goto err;
-    }
-
-    for (j = 1; j < block->num_map; j++)
-    {
-        memptr = block->mapdata + emap[j].mem.addr;
-        CAM_INFO(CAM_EEPROM, "slave-addr: 0x%X mem.addr = 0x%X valid_size = 0x%x",
-                 emap[j].saddr, emap[j].mem.addr, emap[j].mem.valid_size);
-
-        if (emap[j].saddr)
-        {
-            eb_info->i2c_info.slave_addr = emap[j].saddr;
-            rc = cam_eeprom_update_i2c_info(e_ctrl,
-                                            &eb_info->i2c_info);
-            if (rc < 0)
-            {
-                CAM_ERR(CAM_EEPROM, "failed: to update i2c info rc %d", rc);
-                goto err;
-            }
-        }
-        CAM_DBG(CAM_EEPROM, "i2c_info.slave_addr = 0x%X", eb_info->i2c_info.slave_addr);
-
-        if (emap[j].mem.valid_size)
-        {
-            // enable init state
-            i2c_reg_array.reg_addr = S5K3L6_OTP_CONTROL_REGISTER ;
-            i2c_reg_array.reg_data = 0x04;
-            i2c_reg_settings.reg_setting = &i2c_reg_array;
-            rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-            if (rc < 0)
-            {
-                CAM_ERR(CAM_EEPROM, "write initial state failed");
-                goto err;
-            }
-
-            // set the page
-            i2c_reg_array.reg_addr = S5K3L6_OTP_PAGE_SELECT_REGISTER;
-            i2c_reg_array.reg_data = OTP_Page;
-            i2c_reg_settings.reg_setting = &i2c_reg_array;
-            rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-            if (rc < 0)
-            {
-                CAM_ERR(CAM_EEPROM, "write page[%d] failed", OTP_Page);
-                goto err;
-            }
-
-            // set read mode
-            i2c_reg_array.reg_addr = S5K3L6_OTP_CONTROL_REGISTER ;
-            i2c_reg_array.reg_data = 0x01;
-            i2c_reg_settings.reg_setting = &i2c_reg_array;
-            rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-            if (rc < 0)
-            {
-                CAM_ERR(CAM_EEPROM, "set read mode failed");
-                goto err;
-            }
-
-            // wait 47us
-            usleep_range(47, 50);
-
-            start_addr = S5K3L6_OTP_READ_PAGE_OFFSET + emap[j].mem.addr;
-
-            while (start_addr > S5K3L6_OTP_PAGE_END_REGISTER)
-            {
-                start_addr -= S5K3L6_OTP_PAGE_SIZE;
-            }
-            end_addr = start_addr + emap[j].mem.valid_size;
-            total_bytes_to_read = emap[j].mem.valid_size;
-
-            if(end_addr <= S5K3L6_OTP_PAGE_END_REGISTER)
-                read_bytes = emap[j].mem.valid_size;
-            else if(end_addr > S5K3L6_OTP_PAGE_END_REGISTER)
-                read_bytes = S5K3L6_OTP_PAGE_END_REGISTER - start_addr + 1;
-
-            CAM_INFO(CAM_EEPROM, "page[%d] start_addr=0x%X end_addr=0x%X read_bytes=%d total_bytes_to_read=%d",
-                     OTP_Page, start_addr, end_addr, read_bytes, total_bytes_to_read);
-
-            while (total_bytes_to_read > 0)
-            {
-                // rear otp data
-                rc = camera_io_dev_read_seq(&(e_ctrl->io_master_info), start_addr, memptr, addr_type, data_type, read_bytes);
-                if (rc < 0)
-                {
-                    CAM_ERR(CAM_EEPROM, "read failed read_bytes:%d", read_bytes);
-                    goto err;
-                }
-
-                start_addr = S5K3L6_OTP_PAGE_START_REGISTER;
-                total_bytes_to_read -= read_bytes;
-                memptr += read_bytes;
-
-                CAM_INFO(CAM_EEPROM, "page_cnt[%d] memptr=%p readed bytes: %d left=%d",
-                         OTP_Page, memptr, read_bytes, total_bytes_to_read);
-
-                if(OTP_Page == S5K3L6_OTP_TOTAL_PAGE_COUNT - 1)
-                {
-                    CAM_ERR(CAM_EEPROM, "finish read all the OTP memory to page_cnt[%d], return", OTP_Page);
-                    break;
-                }
-
-                if (total_bytes_to_read < S5K3L6_OTP_PAGE_SIZE)
-                {
-                    read_bytes = total_bytes_to_read;
-                }
-                else
-                {
-                    read_bytes = S5K3L6_OTP_PAGE_SIZE;
-                }
-
-                if (total_bytes_to_read > 0)
-                {
-                    OTP_Page += 1;
-                    CAM_INFO(CAM_EEPROM, "move to new page[%d] start_addr=0x%x", OTP_Page, start_addr);
-
-                    // disable read mode
-                    i2c_reg_array.reg_addr = S5K3L6_OTP_CONTROL_REGISTER ;
-                    i2c_reg_array.reg_data = 0x00;
-                    i2c_reg_settings.reg_setting = &i2c_reg_array;
-                    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-                    if (rc < 0)
-                    {
-                        CAM_ERR(CAM_EEPROM, "disable read mode failed");
-                        goto err;
-                    }
-
-                    // set the page
-                    i2c_reg_array.reg_addr = S5K3L6_OTP_PAGE_SELECT_REGISTER;
-                    i2c_reg_array.reg_data = OTP_Page;
-                    i2c_reg_settings.reg_setting = &i2c_reg_array;
-                    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-                    if (rc < 0)
-                    {
-                        CAM_ERR(CAM_EEPROM, "write page[%d] failed", OTP_Page);
-                        goto err;
-                    }
-
-                    // enable read mode
-                    i2c_reg_array.reg_addr = S5K3L6_OTP_CONTROL_REGISTER;
-                    i2c_reg_array.reg_data = 0x01;
-                    i2c_reg_settings.reg_setting = &i2c_reg_array;
-                    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-                    if (rc < 0)
-                    {
-                        CAM_ERR(CAM_EEPROM, "set read mode failed");
-                        goto err;
-                    }
-                }
-            }
-
-            // disable read mode
-            i2c_reg_array.reg_addr = S5K3L6_OTP_CONTROL_REGISTER;
-            i2c_reg_array.reg_data = 0x00;
-            i2c_reg_settings.reg_setting = &i2c_reg_array;
-            rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-            if (rc < 0)
-            {
-                CAM_ERR(CAM_EEPROM, "disable read mode failed");
-                goto err;
-            }
-        }
-    }
-
-    memptr = block->mapdata;
-
-    CAM_ERR(CAM_EEPROM, "OTP read finish memptr=%p", memptr);
-err:
-    return rc;
-}
-#endif //CONFIG_S5K3L6_SENSOR
-
-#ifdef CONFIG_S5K4HA_SENSOR
-static int cam_otp_s5k4ha_read_memory(struct cam_eeprom_ctrl_t *e_ctrl,
-                                      struct cam_eeprom_memory_block_t *block)
-{
-    int rc = 0;
-    struct cam_eeprom_memory_map_t *emap = block->map;
-    struct cam_eeprom_soc_private *eb_info;
-    uint8_t *memptr = block->mapdata, err_flag = 0;
-    uint32_t try_count = 0, read_size = 0, err_flag_addr = 0x0A01;
-    uint32_t OTP_Page = 0, data_addr = 0;
-    int j = 0;
-    struct cam_sensor_i2c_reg_setting i2c_reg_settings;
-    struct cam_sensor_i2c_reg_array i2c_reg_array;
-    enum camera_sensor_i2c_type data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
-    enum camera_sensor_i2c_type addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
-    i2c_reg_settings.addr_type = addr_type;
-    i2c_reg_settings.data_type = data_type;
-    i2c_reg_settings.size = 1;
-    i2c_reg_settings.delay =0;
-    i2c_reg_array.delay = 0;
-
-    if (!e_ctrl)
-    {
-        CAM_ERR(CAM_EEPROM, "e_ctrl is NULL");
-        return -EINVAL;
-    }
-
-    eb_info = (struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
-
-    //set values acc. to 4HA OTP guide
-    OTP_Page  = 17;
-    data_addr = 0xA08;
-
-    msleep(10);
-    for (j = 1; j < block->num_map; j++)
-    {
-        read_size = emap[j].mem.valid_size;
-        memptr = block->mapdata + emap[j].mem.addr;
-
-        CAM_INFO(CAM_EEPROM, "[%d / %d] memptr=%pK, mapdata=%pK, mem.addr=0x%X, size=0x%X, subdev=%d read_size=%u device_type=%d",
-                 j, block->num_map, memptr, block->mapdata, emap[j].mem.addr, emap[j].mem.valid_size, e_ctrl->soc_info.index, read_size, e_ctrl->eeprom_device_type);
-
-        if ((e_ctrl->eeprom_device_type == MSM_CAMERA_SPI_DEVICE
-                || e_ctrl->eeprom_device_type == MSM_CAMERA_I2C_DEVICE)
-                && emap[j].mem.data_type == 0)
-        {
-            CAM_ERR(CAM_EEPROM,
-                    "skipping read as data_type 0, skipped:%d",
-                    read_size);
-            continue;
-        }
-        
-        // clear error bits
-        i2c_reg_array.reg_addr = 0x0A00;
-        i2c_reg_array.reg_data = 4;
-        i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-        rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-        if (rc < 0)
-        {
-            CAM_ERR(CAM_EEPROM,"make initial state failed");
-            goto err;
-        }
-
-        // make initial state
-        i2c_reg_array.reg_addr = 0x0A00;
-        i2c_reg_array.reg_data = 0;
-        i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-        rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-        if (rc < 0)
-        {
-            CAM_ERR(CAM_EEPROM,"make initial state failed");
-            goto err;
-        }
-
-        // set the PAGE
-        i2c_reg_array.reg_addr = 0x0A02;
-        i2c_reg_array.reg_data = OTP_Page;
-        i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-        rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-        if (rc < 0)
-        {
-            CAM_ERR(CAM_EEPROM,"set the PAGE failed");
-            goto err;
-        }
-
-        // enable read mode
-        i2c_reg_array.reg_addr = 0x0A00;
-        i2c_reg_array.reg_data = 1;
-        i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-        rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-        if (rc < 0)
-        {
-            CAM_ERR(CAM_EEPROM,"enable read mode failed");
-            goto err;
-        }
-
-        // check error flag register
-        err_flag = try_count = 0;
-        do{
-            ++try_count;
-
-            // wait
-            msleep(1);
-
-            rc = camera_io_dev_read_seq(&e_ctrl->io_master_info, err_flag_addr, &err_flag, addr_type, data_type, 1);
-            if (rc < 0)
-            {
-                CAM_ERR(CAM_EEPROM, "read failed rc %d", rc);
-                goto err;
-            }
-        }while(err_flag != 1 && try_count < 500);
-
-        if(try_count == 500)
-        {
-            CAM_ERR(CAM_EEPROM, "read failed, otp in error state, waited 500ms");
-            goto err;
-        }
-
-        // start read
-        while(read_size > 0)
-        {
-            rc = camera_io_dev_read_seq(&e_ctrl->io_master_info, data_addr, memptr, addr_type, data_type, 1);
-            if (rc < 0)
-            {
-                CAM_ERR(CAM_EEPROM, "read failed rc %d", rc);
-                goto err;
-            }
-            read_size -= 1;
-            data_addr += 1;
-            memptr    += 1;
-
-            if(data_addr == 0xA44)
-            {
-                OTP_Page++;
-                data_addr = 0xA04;
-
-                // clear error bits
-                i2c_reg_array.reg_addr = 0x0A00;
-                i2c_reg_array.reg_data = 4;
-                i2c_reg_settings.reg_setting = &i2c_reg_array;
-                rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-                if (rc < 0)
-                {
-                    CAM_ERR(CAM_EEPROM,"disable read mode failed");
-                    goto err;
-                }
-
-                // make initial state
-                i2c_reg_array.reg_addr = 0x0A00;
-                i2c_reg_array.reg_data = 0;
-                i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-                rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-                if (rc < 0)
-                {
-                    CAM_ERR(CAM_EEPROM,"make initial state failed");
-                    goto err;
-                }
-
-                // set the PAGE
-                i2c_reg_array.reg_addr = 0x0A02;
-                i2c_reg_array.reg_data = OTP_Page;
-                i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-                rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-                if (rc < 0)
-                {
-                    CAM_ERR(CAM_EEPROM,"set the PAGE failed");
-                    goto err;
-                }
-
-                // enable read mode
-                i2c_reg_array.reg_addr = 0x0A00;
-                i2c_reg_array.reg_data = 1;
-                i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-                rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-                if (rc < 0)
-                {
-                    CAM_ERR(CAM_EEPROM,"enable read mode failed");
-                    goto err;
-                }
-
-                // check error flag register
-                err_flag = try_count = 0;
-                do{
-                    ++try_count;
-
-                    // wait
-                    msleep(1);
-
-                    rc = camera_io_dev_read_seq(&e_ctrl->io_master_info, err_flag_addr, &err_flag, addr_type, data_type, 1);
-                    if (rc < 0)
-                    {
-                        CAM_ERR(CAM_EEPROM, "read failed rc %d", rc);
-                        goto err;
-                    }
-                }while(err_flag != 1 && try_count < 500);
-
-                if(try_count == 500)
-                {
-                    CAM_ERR(CAM_EEPROM, "read failed, otp in error state, waited 500ms");
-                    goto err;
-                }
-            }
-        }
-
-    }
-
-    // clear error bits
-    i2c_reg_array.reg_addr = 0x0A00;
-    i2c_reg_array.reg_data = 4;
-    i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM,"disable read mode failed");
-        goto err;
-    }
-
-    // make initial state
-    i2c_reg_array.reg_addr = 0x0A00;
-    i2c_reg_array.reg_data = 0;
-    i2c_reg_settings.reg_setting = &i2c_reg_array;
-
-    rc = camera_io_dev_write(&(e_ctrl->io_master_info), &i2c_reg_settings);
-    if (rc < 0)
-    {
-        CAM_ERR(CAM_EEPROM,"make initial state failed");
-        goto err;
-    }
-
-    memptr = block->mapdata;
-    CAM_ERR(CAM_EEPROM,"read data done memptr=%pK VR:: End\n",memptr);
-
-err:
-    return rc;
-}
-#endif //CONFIG_S5K4HA_SENSOR
-
+#endif
 #endif
 
 /**
@@ -4266,7 +2700,7 @@ int32_t cam_eeprom_parse_read_memory_map(struct device_node *of_node,
 		CAM_ERR(CAM_EEPROM, "read_eeprom_memory failed");
 		goto power_down;
 	}
-	if(is_cam_otp_enabled(e_ctrl)){
+	if(e_ctrl->soc_info.index == CAM_EEPROM_IDX_BOKEH){
 	    e_ctrl->is_supported = 0;
 	}else{
 	    e_ctrl->is_supported |= cam_eeprom_match_crc(&e_ctrl->cal_data, e_ctrl->soc_info.index);
@@ -5109,11 +3543,10 @@ retry:
 					normal_crc_value |= (1 << i);
 
 				CAMERA_NORMAL_CAL_CRC = normal_crc_value;
-				CAM_INFO(CAM_EEPROM, "num_map = %d, CAMERA_NORMAL_CAL_CRC = 0x%X soc_info.index=%d cal_data.num_data=0x%x isOTP=%d",
-					e_ctrl->cal_data.num_map, CAMERA_NORMAL_CAL_CRC, e_ctrl->soc_info.index, e_ctrl->cal_data.num_data, is_cam_otp_enabled(e_ctrl));
+				CAM_INFO(CAM_EEPROM, "num_map = %d, CAMERA_NORMAL_CAL_CRC = 0x%X soc_info.index=%d cal_data.num_data=0x%x",
+					e_ctrl->cal_data.num_map, CAMERA_NORMAL_CAL_CRC, e_ctrl->soc_info.index, e_ctrl->cal_data.num_data);
 
-				if (is_cam_otp_enabled(e_ctrl))
-				{
+				if (e_ctrl->soc_info.index == CAM_EEPROM_IDX_BOKEH){
 #if defined(CONFIG_SAMSUNG_CAMERA_OTP)
 					rc = cam_otp_read_memory(e_ctrl, &e_ctrl->cal_data);
 #endif
@@ -5128,7 +3561,7 @@ retry:
 				}
 
 				if (1 < e_ctrl->cal_data.num_map) {
-					if(is_cam_otp_enabled(e_ctrl)){
+					if(e_ctrl->soc_info.index == CAM_EEPROM_IDX_BOKEH){
 					    e_ctrl->is_supported = CAMERA_NORMAL_CAL_CRC;
 					}else{
 					    e_ctrl->is_supported |= cam_eeprom_match_crc(&e_ctrl->cal_data,

@@ -19,9 +19,6 @@
 #include "cam_sensor_util.h"
 #include "cam_debug_util.h"
 
-#if defined(CONFIG_SAMSUNG_OIS_MCU_STM32)
-#include "cam_ois_mcu_stm32g.h"
-#endif
 #if defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
 #include "cam_ois_rumba_s4.h"
 #endif
@@ -109,19 +106,14 @@ static int cam_ois_thread_func(void *data)
 					rc = cam_ois_init(o_ctrl);
 					if (rc < 0)
 						CAM_ERR(CAM_OIS, "OIS init failed %d", rc);
-#if !defined(CONFIG_SAMSUNG_OIS_RUMBA_S4)
-					// OIS centering
-					rc = cam_ois_set_ois_mode(o_ctrl, 0x05);
-					if (rc < 0)
-						CAM_ERR(CAM_OIS, "OIS centering failed %d", rc);
-#endif
-					usleep_range(10000, 10050);
+
+					msleep(40);
 					mutex_unlock(&(o_ctrl->ois_mode_mutex));
 					break;
 				case CAM_OIS_THREAD_MSG_APPLY_SETTING:
 					mutex_lock(&(o_ctrl->ois_mode_mutex));
 					CAM_DBG(CAM_OIS, "CAM_OIS_THREAD_MSG_APPLY_SETTING");
-
+                                        CAM_DBG(CAM_OIS, "Mode:%d,  isvalid:%d ",msg->ois_mode, msg->i2c_reg_settings->is_settings_valid); 
 					mutex_lock(&(o_ctrl->i2c_mode_data_mutex));
 					rc = cam_ois_apply_settings(o_ctrl, msg->i2c_reg_settings);
 					if (rc < 0)
@@ -136,25 +128,6 @@ static int cam_ois_thread_func(void *data)
 					mutex_unlock(&(o_ctrl->i2c_mode_data_mutex));
 					mutex_unlock(&(o_ctrl->ois_mode_mutex));
 					break;
-				case CAM_OIS_THREAD_MSG_RESET:
-					mutex_lock(&(o_ctrl->ois_mode_mutex));
-					CAM_DBG(CAM_OIS, "CAM_OIS_THREAD_MSG_RESET_MCU");
-
-					rc = cam_ois_set_ois_mode(o_ctrl, 0x16);
-					if (rc < 0)
-						CAM_ERR(CAM_OIS, "OIS centering failed %d", rc);
-					mutex_unlock(&(o_ctrl->ois_mode_mutex));
-					break;
-#if defined(CONFIG_SAMSUNG_OIS_TAMODE_CONTROL)
-				case CAM_OIS_THREAD_MSG_SET_TAMODE:
-					mutex_lock(&(o_ctrl->ois_mode_mutex));
-					CAM_DBG(CAM_OIS, "CAM_OIS_THREAD_MSG_SET_TAMODE");
-					rc = cam_ois_set_ta_mode(o_ctrl);
-					if (rc < 0)
-						CAM_ERR(CAM_OIS, "set ta mode failed %d", rc);
-					mutex_unlock(&(o_ctrl->ois_mode_mutex));
-					break;
-#endif
 				}
 			}
 			kfree(msg);
@@ -198,7 +171,7 @@ int cam_ois_thread_create(struct cam_ois_ctrl_t *o_ctrl)
 	if (IS_ERR(o_ctrl->ois_thread))
 		return -EINVAL;
 
-	while (o_ctrl->is_thread_started == false) {
+	while (o_ctrl->is_thread_started == FALSE) {
 		usleep_range(2000, 3000);
 		if (retries < 0) {
 			CAM_ERR(CAM_OIS, "Fail to start thread");

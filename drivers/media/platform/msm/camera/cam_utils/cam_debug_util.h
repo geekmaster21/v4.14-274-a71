@@ -47,9 +47,8 @@
 #define CAM_PERF       (1 << 25)
 
 #define CAM_HYP        (1 << 26)
-#define CAM_IR_LED     (1 << 27)
 #if defined(CONFIG_USE_CAMERA_HW_BIG_DATA)
-#define CAM_HWB        (1 << 28)
+#define CAM_HWB        (1 << 27)
 #endif
 
 #define STR_BUFFER_MAX_LENGTH  1024
@@ -79,7 +78,7 @@ void cam_debug_log(unsigned int module_id, const char *func, const int line,
  */
 const char *cam_get_module_name(unsigned int module_id);
 
-#if defined(CONFIG_SEC_A71_PROJECT)
+#if 0	// defined(CONFIG_SEC_A71_PROJECT)
 #define CAM_QCLOGMINIMAL(__module, fmt, args...)                   \
 	pr_err("CAM_ERR: %s: %s: %d " fmt "\n",                     \
 		cam_get_module_name(__module), __func__,  __LINE__, ##args)
@@ -137,27 +136,6 @@ const char *cam_get_module_name(unsigned int module_id);
 		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 
 /*
- * CAM_INFO_RATE_LIMIT_CUSTOM
- * @brief    :  This Macro will print info logs with custom ratelimit
- *
- * @__module :  Respective module id which is been calling this Macro
- * @interval :  Time interval in seconds
- * @burst    :  No of logs to print in interval time
- * @fmt      :  Formatted string which needs to be print in log
- * @args     :  Arguments which needs to be print in log
- */
-#define CAM_INFO_RATE_LIMIT_CUSTOM(__module, interval, burst, fmt, args...) \
-	({								\
-		static DEFINE_RATELIMIT_STATE(_rs,			\
-			(interval * HZ),				\
-			burst);						\
-		if (__ratelimit(&_rs))					\
-			pr_info("CAM_INFO: %s: %s: %d " fmt "\n",	\
-				cam_get_module_name(__module), __func__,\
-				__LINE__, ##args);			\
-	})
-
-/*
  * CAM_DBG
  * @brief    :  This Macro will print debug logs when enabled using GROUP
  *
@@ -175,26 +153,5 @@ const char *cam_get_module_name(unsigned int module_id);
 #define CAM_ERR_RATE_LIMIT(__module, fmt, args...)                 \
 	pr_err_ratelimited("CAM_ERR: %s: %s: %d " fmt "\n",            \
 		cam_get_module_name(__module), __func__,  __LINE__, ##args)
-
-/*
- * CAM_ERR_RATE_LIMIT_CUSTOM
- * @brief    :  This Macro will print error logs with custom ratelimit
- *
- * @__module :  Respective module id which is been calling this Macro
- * @interval :  Time interval in seconds
- * @burst    :  No of logs to print in interval time
- * @fmt      :  Formatted string which needs to be print in log
- * @args     :  Arguments which needs to be print in log
- */
-#define CAM_ERR_RATE_LIMIT_CUSTOM(__module, interval, burst, fmt, args...) \
-	({								\
-		static DEFINE_RATELIMIT_STATE(_rs,			\
-			(interval * HZ),				\
-			burst);						\
-		if (__ratelimit(&_rs))					\
-			pr_err("CAM_ERR: %s: %s: %d " fmt "\n",		\
-				cam_get_module_name(__module), __func__,\
-				__LINE__, ##args);			\
-	})
 
 #endif /* _CAM_DEBUG_UTIL_H_ */
