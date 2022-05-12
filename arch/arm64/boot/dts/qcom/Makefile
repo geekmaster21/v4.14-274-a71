@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
+ifneq ($(filter y,$(CONFIG_BOARD_SUNFISH) $(CONFIG_BOARD_FLORAL)),y)
+
 ifeq ($(TARGET_BOARD_TYPE),auto)
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SM8150) += \
@@ -86,7 +88,7 @@ dtb-$(CONFIG_ARCH_SM6150)	+= sa6155-adp-star.dtb \
 
 endif
 
-else # TARGET_BOARD_TYPE != auto
+else #ifeq ($(TARGET_BOARD_TYPE),auto)
 
 dtb-$(CONFIG_ARCH_QCOM)	+= apq8016-sbc.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= apq8096-db820c.dtb
@@ -561,6 +563,8 @@ dtb-$(CONFIG_ARCH_SDM660) += sdm660-sim.dtb \
 	sdm660-usbc-audio-rcm.dtb
 endif
 
+endif #ifeq ($(TARGET_BOARD_TYPE),auto)
+
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
         dtbo-$(CONFIG_ARCH_SDM429W) += sdm429-wtp-overlay.dtbo\
 		sdm429-wdp-overlay.dtbo\
@@ -584,7 +588,7 @@ dtb-$(CONFIG_ARCH_SDM429W) += sdm429-wtp.dtb\
 	sda429-bg-dvt2-wtp.dtb
 endif
 
-endif
+endif #ifneq ($(filter y,$(CONFIG_BOARD_SUNFISH) $(CONFIG_BOARD_FLORAL)),y)
 
 ifeq ($(CONFIG_ARM64),y)
 always		:= $(dtb-y)

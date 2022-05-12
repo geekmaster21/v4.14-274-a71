@@ -486,22 +486,6 @@
 			};
 		};
 
-		/* smb1390 i2c */
-		smb1390_i2c: smb1390_i2c {
-			smb1390_i2c_active: smb1390_i2c_active {
-				mux {
-					pins = "gpio43", "gpio42";
-					function = "gpio";
-				};
-
-				config {
-					pins = "gpio43", "gpio42";
-					drive-strength = <2>;
-					bias-disable;
-				};
-			};
-		};
-
 		qupv3_se4_4uart_pins: qupv3_se4_4uart_pins {
 			qupv3_se4_ctsrx: qupv3_se4_ctsrx {
 				mux {
@@ -943,7 +927,6 @@
 					pins = "gpio101", "gpio102";
 					drive-strength = <2>;
 					bias-pull-up;
-					input-enable;
 				};
 			};
 		};
@@ -1287,7 +1270,7 @@
 			config {
 				pins = "gpio17","gpio18";
 				bias-pull-up; /* PULL UP*/
-				drive-strength = <16>; /* 16 MA */
+				drive-strength = <2>; /* 2 MA */
 			};
 		};
 
@@ -1300,8 +1283,8 @@
 
 			config {
 				pins = "gpio17","gpio18";
-				bias-disable; /* NO PULL */
-				drive-strength = <16>; /* 16 MA */
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
 			};
 		};
 
@@ -1315,7 +1298,7 @@
 			config {
 				pins = "gpio19","gpio20";
 				bias-pull-up; /* PULL UP*/
-				drive-strength = <16>; /* 16 MA */
+				drive-strength = <2>; /* 2 MA */
 			};
 		};
 
@@ -1328,8 +1311,8 @@
 
 			config {
 				pins = "gpio19","gpio20";
-				bias-disable; /* NO PULL */
-				drive-strength = <16>; /* 16 MA */
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
 			};
 		};
 
@@ -1343,7 +1326,7 @@
 			config {
 				pins = "gpio27","gpio28";
 				bias-pull-up; /* PULL UP*/
-				drive-strength = <16>; /* 16 MA */
+				drive-strength = <2>; /* 2 MA */
 			};
 		};
 
@@ -1356,8 +1339,8 @@
 
 			config {
 				pins = "gpio27","gpio28";
-				bias-disable; /* NO PULL */
-				drive-strength = <16>; /* 16 MA */
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
 			};
 		};
 
@@ -1587,12 +1570,12 @@
 
 		sdc2_cd_on: cd_on {
 			mux {
-				pins = "gpio00";
+				pins = "gpio69";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio00";
+				pins = "gpio69";
 				drive-strength = <2>;
 				bias-pull-up;
 			};
@@ -1600,12 +1583,12 @@
 
 		sdc2_cd_off: cd_off {
 			mux {
-				pins = "gpio00";
+				pins = "gpio69";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio00";
+				pins = "gpio69";
 				drive-strength = <2>;
 				bias-disable;
 			};

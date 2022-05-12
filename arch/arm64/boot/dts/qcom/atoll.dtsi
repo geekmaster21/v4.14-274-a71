@@ -45,7 +45,7 @@
 		mboxes = <&qmp_aop 0>;
 	};
 
-	aliases: aliases {
+	aliases {
 		serial0 = &qupv3_se8_2uart;
 		sdhc1 = &sdhc_1; /* eMMC */
 		sdhc2 = &sdhc_2; /* SD Card */
@@ -463,11 +463,11 @@
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
-			shared_meta: vbmeta {
+			vbmeta {
 				compatible = "android,vbmeta";
 				parts = "vbmeta,boot,system,vendor,dtbo";
 			};
-			android_q_fstab: fstab {
+			fstab {
 				compatible = "android,fstab";
 				vendor {
 					compatible = "android,vendor";
@@ -869,7 +869,7 @@
 		qcom,coresight-jtagmm-cpu = <&CPU7>;
 	};
 
-	msm_imem: qcom,msm-imem@146aa000 {
+	qcom,msm-imem@146aa000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x146aa000 0x1000>;
 		ranges = <0x0 0x146aa000 0x1000>;
@@ -2679,12 +2679,13 @@
 
 	sdhc_1: sdhci@7c4000 {
 		compatible = "qcom,sdhci-msm-v5";
-		reg = <0x7c4000 0x1000>, <0x7c5000 0x1000>, <0x7c8000 0x8000>;
-		reg-names = "hc_mem", "cmdq_mem", "cmdq_ice";
+		reg = <0x7c4000 0x1000>, <0x7c5000 0x1000>;
+		reg-names = "hc_mem", "cmdq_mem";
 
 		interrupts = <GIC_SPI 641 IRQ_TYPE_NONE>,
 					<GIC_SPI 644 IRQ_TYPE_NONE>;
 		interrupt-names = "hc_irq", "pwr_irq";
+		sdhc-msm-crypto = <&sdcc1_ice>;
 
 		qcom,bus-width = <8>;
 		qcom,large-address-bus;
@@ -2834,11 +2835,11 @@
 
 	ufshc_mem: ufshc@1d84000 {
 		compatible = "qcom,ufshc";
-		reg = <0x1d84000 0x3000>, <0x1d90000 0x8000>;
-		reg-names = "ufs_mem", "ufs_ice";
+		reg = <0x1d84000 0x3000>;
 		interrupts = <0 265 0>;
 		phys = <&ufsphy_mem>;
 		phy-names = "ufsphy";
+		ufs-qcom-crypto = <&ufs_ice>;
 
 		lanes-per-direction = <1>;
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */

@@ -256,7 +256,6 @@
 					pins = "gpio18", "gpio19";
 					drive-strength = <2>;
 					bias-pull-up;
-					input-enable;
 				};
 			};
 		};
@@ -267,7 +266,7 @@
 					pins = "gpio87", "gpio18";
 					function = "gpio";
 				};
-				
+
 				config {
 					pins = "gpio87", "gpio18";
 					drive-strength = <16>; /* 16 mA */
@@ -275,7 +274,7 @@
 					output-high;
 				};
 			};
-			
+
 			ss5_pwr_ctrl_rst_off: ss5_pwr_ctrl_off {
 				mux {
 					pins = "gpio87", "gpio18";
@@ -291,52 +290,36 @@
 			};
 		};
 
-		/* SE 4 pin mappings for AFC*/ 
-		qupv3_se4_afc_pins: qupv3_se4_afc_pins { 
-			qupv3_se4_afc_active: qupv3_se4_afc_active { 
-				mux { 
-				pins = "gpio20"; 
-				function = "qup10"; 
-				}; 
-
-				config { 
-				pins = "gpio20"; 
-				drive-strength = <2>; 
-				bias-disable; 
-				}; 
-		}; 
-
-		qupv3_se4_afc_sleep: qupv3_se4_afc_sleep { 
-			mux { 
-				pins = "gpio20"; 
-				function = "gpio"; 
-				}; 
-
-
-				config { 
-				pins = "gpio20"; 
-				drive-strength = <2>; 
-				bias-pull-up; 
-				}; 
-			}; 
-		}; 
-
-		/* smb1390 i2c */
-		smb1390_i2c: smb1390_i2c {
-			smb1390_i2c_active: smb1390_i2c_active {
+		/* QUPv3_1 North instances */
+		/* SE 4 pin mappings */
+		qupv3_se4_i2c_pins: qupv3_se4_i2c_pins {
+			qupv3_se4_i2c_active: qupv3_se4_i2c_active {
 				mux {
-					pins = "gpio113", "gpio114";
-					function = "gpio";
+					pins = "gpio20", "gpio21";
+					function = "qup10";
 				};
 
 				config {
-					pins = "gpio113", "gpio114";
+					pins = "gpio20", "gpio21";
 					drive-strength = <2>;
 					bias-disable;
 				};
 			};
+
+			qupv3_se4_i2c_sleep: qupv3_se4_i2c_sleep {
+				mux {
+					pins = "gpio20", "gpio21";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio20", "gpio21";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
 		};
-		
+
 		qupv3_se4_spi_pins: qupv3_se4_spi_pins {
 			qupv3_se4_spi_active: qupv3_se4_spi_active {
 				mux {
@@ -883,7 +866,7 @@
 		sdc1_cmd_on: sdc1_cmd_on {
 			config {
 				pins = "sdc1_cmd";
-				bias-disable;		/* NO pull */
+				bias-pull-up;		/* pull up */
 				drive-strength = <10>;	/* 10 MA */
 			};
 		};
@@ -892,7 +875,7 @@
 			config {
 				pins = "sdc1_cmd";
 				num-grp-pins = <1>;
-				bias-disable;		/* NO pull */
+				bias-pull-up;		/* pull up */
 				drive-strength = <2>;	/* 2 MA */
 			};
 		};
@@ -984,7 +967,7 @@
 			config {
 				pins = "gpio99";
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-up;
 			};
 		};
 
@@ -1512,7 +1495,7 @@
 
 			config {
 				pins = "gpio32", "gpio33";
-				bias-disable; /*No PULL*/
+				bias-pull-up; /* PULL UP*/
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
@@ -1526,7 +1509,7 @@
 
 			config {
 				pins = "gpio32", "gpio33";
-				bias-disable; /*No PULL */
+				bias-pull-down; /* PULL DOWN */
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
@@ -1540,7 +1523,7 @@
 
 			config {
 				pins = "gpio34", "gpio35";
-				bias-disable; /*No PULL*/
+				bias-pull-up; /* PULL UP*/
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
@@ -1554,7 +1537,7 @@
 
 			config {
 				pins = "gpio34", "gpio35";
-				bias-disable; /*No PULL */
+				bias-pull-down; /* PULL DOWN */
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
@@ -2345,6 +2328,12 @@
 &pm6150l_gpios {
 	cam_sensor_dvdd_en: cam_sensor_dvdd_en {
 		pins = "gpio3";
+		function = "normal";
+		power-source = <0>;
+		output-low;
+	};
+	cam_sensor_0_vana: cam_sensor_0_vana {
+		pins = "gpio9";
 		function = "normal";
 		power-source = <0>;
 		output-low;
